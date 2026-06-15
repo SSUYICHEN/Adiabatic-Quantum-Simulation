@@ -1,0 +1,13 @@
+# SSH-Hubbard QA toolkit dependencies
+# Install:  py -m venv .venv ; .venv\Scripts\python -m pip install -r requirements.txt
+#
+# NOTE: versions are pinned for Python 3.9.0. Newer qiskit/rustworkx wheels
+# ship Rust extensions that fail to load on this old Python patch release
+# ("DLL load failed ... _accelerate / rustworkx"). If you upgrade to a newer
+# Python (>=3.11), you may instead use `qiskit>=1.0` and `rustworkx` unpinned.
+qiskit==1.0.2
+rustworkx==0.15.1
+openfermion==1.6.1
+numpy>=1.23,<2
+scipy>=1.9
+matplotlib>=3.5
