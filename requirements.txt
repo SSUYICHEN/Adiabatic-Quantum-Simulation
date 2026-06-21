@@ -1,13 +1,22 @@
-# SSH-Hubbard QA toolkit dependencies
+# AQS toolkit - core (CPU) dependencies.
 # Install:  py -m venv .venv ; .venv\Scripts\python -m pip install -r requirements.txt
 #
-# NOTE: versions are pinned for Python 3.9.0. Newer qiskit/rustworkx wheels
-# ship Rust extensions that fail to load on this old Python patch release
-# ("DLL load failed ... _accelerate / rustworkx"). If you upgrade to a newer
-# Python (>=3.11), you may instead use `qiskit>=1.0` and `rustworkx` unpinned.
-qiskit==1.0.2
-rustworkx==0.15.1
-openfermion==1.6.1
-numpy>=1.23,<2
+# These pins match the reference GPU venv (Linux, Python 3.12):
+#   qiskit 2.3.0, openfermion 1.7.1, rustworkx 0.17.1, numpy 2.4, scipy 1.16, matplotlib 3.10
+# On Python 3.9 (the original Windows dev box) use the alternative pins below.
+
+# ---- Python 3.10+ (e.g. the reference Linux/GPU venv) ----
+qiskit>=2.0 ; python_version >= "3.10"
+openfermion>=1.7 ; python_version >= "3.10"
+rustworkx>=0.17 ; python_version >= "3.10"
+numpy>=2.0 ; python_version >= "3.10"
+
+# ---- Python 3.9 (older Windows box; newer Rust wheels fail to load) ----
+qiskit==1.0.2 ; python_version < "3.10"
+openfermion==1.6.1 ; python_version < "3.10"
+rustworkx==0.15.1 ; python_version < "3.10"
+numpy>=1.23,<2 ; python_version < "3.10"
+
+# ---- version-independent ----
 scipy>=1.9
 matplotlib>=3.5

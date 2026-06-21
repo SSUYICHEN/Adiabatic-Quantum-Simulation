@@ -1,0 +1,8 @@
+# AQS toolkit - GPU backend (NVIDIA CUDA-Q). Linux + NVIDIA GPU only.
+# Install on the GPU machine (after the core requirements):
+#   python -m pip install -r requirements-gpu.txt
+#
+# Versions match the reference GPU venv (Python 3.12, CUDA 13):
+cudaq==0.13.0
+cupy-cuda13x==13.6.0
+# (cudaq pulls in custatevec / cutensornet; cupy provides GPU diagonalisation.)
