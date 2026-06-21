@@ -24,12 +24,12 @@ py -m venv .venv
 # or from source:  .venv\Scripts\python -m pip install .
 ```
 
-## Install (GPU, NVIDIA CUDA-Q — Linux only)
+## Install (GPU, NVIDIA CUDA-Q)
 
 ```bash
 python -m pip install aqs-2.0.0-py3-none-any.whl
 python -m pip install -r requirements-gpu.txt      # cudaq + cupy
-aqs selftest --backend cudaq                        # verify the GPU backend
+aqs selftest --backend cudaq                       # verify the GPU backend
 ```
 CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
 
@@ -88,7 +88,7 @@ See `examples/make_example_hamiltonian.py` for a generator.
 ### Adding a new property
 
 Register a function `f(statevector, layout) -> dict` in
-`aqs/observables.py::PROPERTIES`. It is then available everywhere via
+`src/observables.py::PROPERTIES`. It is then available everywhere via
 `--property <name>`.
 
 ## Backends
@@ -115,12 +115,12 @@ aqs_results/
 
 | File | Role |
 |------|------|
-| `aqs/core.py` | SSH-Hubbard model, gates, parity-corrected annealing circuit |
-| `aqs/observables.py` | twist invariant, density, **property registry** |
-| `aqs/backends.py` | qiskit (CPU) / cudaq (GPU) backends + selftest |
-| `aqs/hamiltonian.py` | load arbitrary Hamiltonian files → ground state + measure |
-| `aqs/experiments.py` | `fidelity_scan`, `berry_sweep`, `polarization_sweep` |
-| `aqs/plotting.py` | the three figure types |
-| `aqs/cli.py` | the `aqs` command-line interface |
+| `src/core.py` | SSH-Hubbard model, gates, parity-corrected annealing circuit |
+| `src/observables.py` | twist invariant, density, **property registry** |
+| `src/backends.py` | qiskit (CPU) / cudaq (GPU) backends + selftest |
+| `src/hamiltonian.py` | load arbitrary Hamiltonian files → ground state + measure |
+| `src/experiments.py` | `fidelity_scan`, `berry_sweep`, `polarization_sweep` |
+| `src/plotting.py` | the three figure types |
+| `src/cli.py` | the `aqs` command-line interface |
 
 Run `aqs <command> -h` for the full option list of each command.
