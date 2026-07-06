@@ -1,9 +1,10 @@
-# AQS Toolkit (`aqs`)
+# Adiabatic Quantum Simulation
 
-**Adiabatic Quantum Simulation of topological properties.**
-Measure topological invariants on a quantum simulator — for the built-in
-**SSH-Hubbard** model *or* for an **arbitrary Hamiltonian** you supply, on a
+Adiabatic Quantum Simulation of topological properties on a quantum simulator — for the built-in
+**SSH-Hubbard** model *or* **arbitrary Hamiltonian**, on a
 **CPU (qiskit)** or **NVIDIA GPU (CUDA-Q)** backend.
+This repository contains the official implementation of the paper:
+[![arXiv](https://img.shields.io/badge/arXiv-2605.11823-b31b1b.svg)](https://arxiv.org/abs/2605.11823)
 
 ## What it does
 
