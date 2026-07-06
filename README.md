@@ -20,16 +20,14 @@ Measure topological invariants on a quantum simulator — for the built-in
 
 ```powershell
 py -m venv .venv
-.venv\Scripts\python -m pip install dist\aqs-2.0.0-py3-none-any.whl
-# or from source:  .venv\Scripts\python -m pip install .
+pip install git+https://github.com/SSUYICHEN/Adiabatic-Quantum-Simulation.git
 ```
 
 ## Install (GPU, NVIDIA CUDA-Q)
 
 ```bash
-python -m pip install aqs-2.0.0-py3-none-any.whl
-python -m pip install -r requirements-gpu.txt      # cudaq + cupy
-aqs selftest --backend cudaq                       # verify the GPU backend
+pip install "aqs[gpu] @ git+https://github.com/SSUYICHEN/Adiabatic-Quantum-Simulation.git"
+aqs selftest --backend cudaq  # verify the GPU backend
 ```
 CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
 
@@ -40,13 +38,10 @@ CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
 aqs fidelity --N 6 --v 0.5 --w 1.5 --electrons 12 --U 0
 
 # Step 1: Berry phase (PBC)
-aqs berry --N 6 --electrons 12 --v 1.0 ^
-    --w 0,0.25,0.5,0.75,0.99,1.01,1.25,1.5,1.75,2.0 ^
-    --UA 0.01 --delta-U 0,0.1,1 --TA 1 --steps 40
+aqs berry --N 6 --electrons 12 --v 1.0 --w 0,0.25,0.5,0.75,0.99,1.01,1.25,1.5,1.75,2.0 --UA 0.01 --delta-U 0,0.1,1 --TA 1 --steps 40
 
-# Step 2: electron polarization (OBC half-filling)
-aqs polarization --N 6 --v 0.5 --w 1.5 --UA 1.0 ^
-    --delta-U 0,0.01,0.1,1,3 --TA 1 --steps 40
+# Step 2: electron polarization (OBC, default:half-filling)
+aqs polarization --N 6 --v 0.5 --w 1.5 --UA 1.0 --delta-U 0,0.01,0.1,1,3 --TA 1 --steps 40
 
 # Run any of these on GPU:
 aqs berry --N 6 ... --backend cudaq
@@ -55,11 +50,9 @@ aqs berry --N 6 ... --backend cudaq
 ## Arbitrary Hamiltonian
 
 ```powershell
-aqs measure --hamiltonian examples\ssh_spinless_N3_topological.json ^
-            --property berry,polarization --backend qiskit
+aqs measure --hamiltonian examples\ssh_spinless_N3_topological.json --property berry,polarization --backend qiskit
 ```
-The ground state is obtained by exact diagonalisation (CPU `scipy` or GPU
-`cupy`), then the requested properties are measured.
+The ground state is obtained by exact diagonalisation (CPU `scipy` or GPU `cupy`), then the requested properties are measured.
 
 ### Hamiltonian file format (JSON, self-describing)
 
@@ -115,12 +108,12 @@ aqs_results/
 
 | File | Role |
 |------|------|
-| `src/core.py` | SSH-Hubbard model, gates, parity-corrected annealing circuit |
-| `src/observables.py` | twist invariant, density, **property registry** |
-| `src/backends.py` | qiskit (CPU) / cudaq (GPU) backends + selftest |
-| `src/hamiltonian.py` | load arbitrary Hamiltonian files → ground state + measure |
-| `src/experiments.py` | `fidelity_scan`, `berry_sweep`, `polarization_sweep` |
-| `src/plotting.py` | the three figure types |
-| `src/cli.py` | the `aqs` command-line interface |
+| `src/aqs/core.py` | SSH-Hubbard model, gates, parity-corrected annealing circuit |
+| `src/aqs/observables.py` | twist invariant, density, **property registry** |
+| `src/aqs/backends.py` | qiskit (CPU) / cudaq (GPU) backends + selftest |
+| `src/aqs/hamiltonian.py` | load arbitrary Hamiltonian files → ground state + measure |
+| `src/aqs/experiments.py` | `fidelity_scan`, `berry_sweep`, `polarization_sweep` |
+| `src/aqs/plotting.py` | the three figure types |
+| `src/aqs/cli.py` | the `aqs` command-line interface |
 
 Run `aqs <command> -h` for the full option list of each command.
