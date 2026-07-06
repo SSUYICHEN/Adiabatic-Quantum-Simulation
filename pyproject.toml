@@ -8,10 +8,8 @@ version = "2.0.0"
 description = "Adiabatic Quantum Simulation toolkit for topological properties (SSH-Hubbard + arbitrary Hamiltonians, qiskit/CUDA-Q backends)"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
-authors = [{ name = "Michael Yang" }]
-keywords = ["quantum-simulation", "topological-insulator", "SSH-Hubbard",
-            "berry-phase", "qiskit", "cuda-quantum", "cudaq", "adiabatic"]
+license = "MIT"
+authors = [{ name = "Ssu Yi Chen" }]
 
 # Core dependencies adapt to the Python version automatically (PEP 508 markers):
 #   * Python 3.9   -> conservative pins (newer Rust wheels fail to import there)
@@ -43,4 +41,5 @@ gpu = [
 aqs = "aqs.cli:main"
 
 [tool.setuptools]
+package-dir = {"" = "src"}
 packages = ["aqs"]
