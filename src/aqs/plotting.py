@@ -160,14 +160,14 @@ def plot_polarization(source, out_path):
     for rec in records:
         du = round(float(rec["metadata"].get("delta_U", 0.0)), 6)
         ax.plot(rec["data"]["unit_cell_j"], rec["data"]["n_A_minus_n_B"],
-                "o-", color=cmap[du], markersize=8, linewidth=2, label=fr"$\Delta U={du:g}$")
+                "o-", color=cmap[du], markersize=4, linewidth=1, label=fr"$\Delta U={du:g}$")
     ax.axhline(0.0, color="gray", linestyle="--", alpha=0.6)
     ax.set_xlabel("Unit Cell Index $j$", fontsize=15)
     ax.set_ylabel(r"Polarization $\langle n_{A,j}\rangle-\langle n_{B,j}\rangle$", fontsize=15)
     ax.set_xticks(j_list)
     ax.tick_params(axis="both", labelsize=12)
     ax.grid(True, alpha=0.3)
-    ax.legend(loc='upper right', fontsize=12, ncol=2)
+    ax.legend(loc='upper right', fontsize=11, ncol=2)
     #ax.legend(loc="best", fontsize=12)
     fig.tight_layout()
     _save(fig, out_path)
