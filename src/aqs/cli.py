@@ -87,6 +87,13 @@ def cmd_berry(a):
         img = os.path.join(out_dir, "BerryPhase_PhaseDiagram.png")
         pl.plot_berry_phase(records, img, v_default=a.v)
         print(f"  -> saved figure: {img}")
+        # cross section gamma vs Delta U at fixed w (Fig. 3 bottom); colours
+        # match the corresponding points of the phase diagram above.
+        w_cut = a.w_cut if a.w_cut is not None else max(a.w)
+        if len(a.delta_U) > 1 and any(abs(w - w_cut) < 1e-9 for w in a.w):
+            img2 = os.path.join(out_dir, f"BerryPhase_CrossSection_w_{w_cut:g}.png")
+            pl.plot_berry_cross_section(records, img2, w_cut=w_cut)
+            print(f"  -> saved figure: {img2}")
 
 
 # --------------------------- polarization ----------------------------
@@ -107,6 +114,12 @@ def cmd_polarization(a):
         img = os.path.join(out_dir, "Polarization_vs_DeltaU.png")
         pl.plot_polarization(records, img)
         print(f"  -> saved figure: {img}")
+        # cross section: edge polarization (unit cell a.cell) vs Delta U
+        # (Fig. 4 bottom); colours match the curves of the figure above.
+        if len(a.delta_U) > 1:
+            img2 = os.path.join(out_dir, f"Polarization_CrossSection_cell_{a.cell}.png")
+            pl.plot_polarization_cross_section(records, img2, cell_index=a.cell)
+            print(f"  -> saved figure: {img2}")
 
 
 # ------------------------------ measure (arbitrary H) ----------------
@@ -159,6 +172,10 @@ def cmd_plot(a):
         pl.plot_berry_phase(a.data, out, v_default=a.v)
     elif a.kind == "polarization":
         pl.plot_polarization(a.data, out)
+    elif a.kind == "berry-cut":
+        pl.plot_berry_cross_section(a.data, out, w_cut=a.w_cut)
+    elif a.kind == "polarization-cut":
+        pl.plot_polarization_cross_section(a.data, out, cell_index=a.cell)
     print(f"  -> saved figure: {out}")
 
 
@@ -205,6 +222,9 @@ def build_parser():
     b.add_argument("--TA", type=float, default=1.0)
     b.add_argument("--steps", type=int, default=40)
     b.add_argument("--mode", choices=["up_spin", "total"], default="up_spin")
+    b.add_argument("--w-cut", dest="w_cut", type=float, default=None,
+                   help="w value for the gamma-vs-DeltaU cross-section figure "
+                        "(default: the largest scanned w; must be in --w)")
     b.add_argument("--out"); b.add_argument("--no-plot", action="store_true")
     _add_backend(b); b.set_defaults(func=cmd_berry)
 
@@ -220,6 +240,9 @@ def build_parser():
                      default=[0, 0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3])
     pol.add_argument("--TA", type=float, default=1.0)
     pol.add_argument("--steps", type=int, default=40)
+    pol.add_argument("--cell", type=int, default=0,
+                     help="unit-cell index for the polarization-vs-DeltaU "
+                          "cross-section figure (0 = A-sublattice edge)")
     pol.add_argument("--out"); pol.add_argument("--no-plot", action="store_true")
     _add_backend(pol); pol.set_defaults(func=cmd_polarization)
 
@@ -240,9 +263,15 @@ def build_parser():
     # plot
     pt = sub.add_parser("plot", help="(re)draw a figure from saved JSON",
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    pt.add_argument("--kind", required=True, choices=["fidelity", "berry", "polarization"])
+    pt.add_argument("--kind", required=True,
+                    choices=["fidelity", "berry", "polarization",
+                             "berry-cut", "polarization-cut"])
     pt.add_argument("--data", required=True)
     pt.add_argument("--v", type=float, default=1.0, help="v for the berry gap threshold")
+    pt.add_argument("--w-cut", dest="w_cut", type=float, default=1.5,
+                    help="w value for --kind berry-cut")
+    pt.add_argument("--cell", type=int, default=0,
+                    help="unit-cell index for --kind polarization-cut")
     pt.add_argument("--out"); pt.set_defaults(func=cmd_plot)
 
     return p
