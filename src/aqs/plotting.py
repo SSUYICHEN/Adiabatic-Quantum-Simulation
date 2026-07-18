@@ -154,7 +154,7 @@ def plot_polarization(source, out_path):
     if not records:
         raise ValueError(f"No polarization records found in: {source!r}")
     records.sort(key=lambda r: float(r["metadata"].get("delta_U", 0.0)))
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(8, 4))
     cmap = _delta_u_colors(float(r["metadata"].get("delta_U", 0.0)) for r in records)
     j_list = records[0]["data"]["unit_cell_j"]
     for rec in records:
