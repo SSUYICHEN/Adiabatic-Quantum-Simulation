@@ -167,7 +167,8 @@ def plot_polarization(source, out_path):
     ax.set_xticks(j_list)
     ax.tick_params(axis="both", labelsize=12)
     ax.grid(True, alpha=0.3)
-    ax.legend(loc="best", fontsize=12)
+    ax.legend(loc='upper right', fontsize=12, ncol=2)
+    #ax.legend(loc="best", fontsize=12)
     fig.tight_layout()
     _save(fig, out_path)
     return out_path
