@@ -156,10 +156,11 @@ def plot_polarization(source, out_path):
     records.sort(key=lambda r: float(r["metadata"].get("delta_U", 0.0)))
     fig, ax = plt.subplots(figsize=(8, 4))
     cmap = _delta_u_colors(float(r["metadata"].get("delta_U", 0.0)) for r in records)
-    j_list = records[0]["data"]["unit_cell_j"]+1
+    j_list = [j + 1 for j in records[0]["data"]["unit_cell_j"]]
     for rec in records:
         du = round(float(rec["metadata"].get("delta_U", 0.0)), 6)
-        ax.plot(rec["data"]["unit_cell_j"], rec["data"]["n_A_minus_n_B"],
+        js = [j + 1 for j in rec["data"]["unit_cell_j"]]
+        ax.plot(js, rec["data"]["n_A_minus_n_B"],
                 "o-", color=cmap[du], markersize=4, linewidth=1, label=fr"$\Delta U={du:g}$")
     ax.axhline(0.0, color="gray", linestyle="--", alpha=0.6)
     ax.set_xlabel("Unit Cell Index $j$", fontsize=15)
@@ -210,7 +211,7 @@ def plot_berry_cross_section(source, out_path, w_cut=1.5, linthresh=1e-3,
     return out_path
 
 
-def plot_polarization_cross_section(source, out_path, cell_index=1,
+def plot_polarization_cross_section(source, out_path, cell_index=0,
                                     linthresh=1e-3):
     """Sublattice polarization <n_A,j> - <n_B,j> at one unit cell (default
     j=0, the A-sublattice edge) vs Delta U (cf. Fig. 4, bottom panel). Marker
@@ -226,16 +227,16 @@ def plot_polarization_cross_section(source, out_path, cell_index=1,
     for rec in records:
         dus.append(round(float(rec["metadata"].get("delta_U", 0.0)), 6))
         vals.append(float(rec["data"]["n_A_minus_n_B"][cell_index]))
-
+    label_cell = cell_index + 1
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.plot(dus, vals, "-", color="gray", alpha=0.5, linewidth=1.5, zorder=1)
     ax.scatter(dus, vals, c=[cmap[du] for du in dus], s=45, zorder=2,
                edgecolors="none")
     _symlog_deltaU_axis(ax, dus, linthresh=linthresh)
     ax.set_ylabel(
-        fr"Polarization $\langle n_{{A,{cell_index}}}\rangle-"
-        fr"\langle n_{{B,{cell_index}}}\rangle$", fontsize=15)
-    ax.set_title(fr"Cross section at unit cell $j = {cell_index}$", fontsize=13)
+        fr"Polarization $\langle n_{{A,{label_cell}}}\rangle-"
+        fr"\langle n_{{B,{label_cell}}}\rangle$", fontsize=15)
+    ax.set_title(fr"Cross section at unit cell $j = {label_cell}$", fontsize=13)
     fig.tight_layout()
     _save(fig, out_path)
     return out_path
