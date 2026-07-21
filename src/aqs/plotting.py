@@ -156,7 +156,7 @@ def plot_polarization(source, out_path):
     records.sort(key=lambda r: float(r["metadata"].get("delta_U", 0.0)))
     fig, ax = plt.subplots(figsize=(8, 4))
     cmap = _delta_u_colors(float(r["metadata"].get("delta_U", 0.0)) for r in records)
-    j_list = records[0]["data"]["unit_cell_j"]
+    j_list = records[0]["data"]["unit_cell_j"]+1
     for rec in records:
         du = round(float(rec["metadata"].get("delta_U", 0.0)), 6)
         ax.plot(rec["data"]["unit_cell_j"], rec["data"]["n_A_minus_n_B"],
@@ -210,7 +210,7 @@ def plot_berry_cross_section(source, out_path, w_cut=1.5, linthresh=1e-3,
     return out_path
 
 
-def plot_polarization_cross_section(source, out_path, cell_index=0,
+def plot_polarization_cross_section(source, out_path, cell_index=1,
                                     linthresh=1e-3):
     """Sublattice polarization <n_A,j> - <n_B,j> at one unit cell (default
     j=0, the A-sublattice edge) vs Delta U (cf. Fig. 4, bottom panel). Marker
