@@ -1,8 +1,29 @@
 # AQS toolkit - GPU backend (NVIDIA CUDA-Q). Linux + NVIDIA GPU only.
-# Install on the GPU machine (after the core requirements):
+#
+# PREFERRED:  uv sync --extra cu12     (or --extra cu13)
+# This file is a pip fallback only; uv.lock is the authoritative pin set.
 #   python -m pip install -r requirements-gpu.txt
 #
-# Versions match the reference GPU venv (Python 3.12, CUDA 13):
-cudaq==0.13.0
-cupy-cuda13x==13.6.0
-# (cudaq pulls in custatevec / cutensornet; cupy provides GPU diagonalisation.)
+# ---------------------------------------------------------------------------
+# Choose the block matching your DRIVER's CUDA major version - the
+# "CUDA Version: XX.X" shown top-right by `nvidia-smi`. Installing the cu13
+# wheels against a CUDA 12 driver fails at import; they are NOT interchangeable.
+# ---------------------------------------------------------------------------
+
+# ---- CUDA 12.x driver (>= 525) ----
+cuda-quantum-cu12>=0.12
+cupy-cuda12x>=13.4
+
+# ---- CUDA 13.x driver (>= 580); requires Python >= 3.11.
+#      Uncomment these and comment out the cu12 block above.
+# cuda-quantum-cu13>=0.13
+# cupy-cuda13x>=13.6
+
+# Notes:
+#  * cuda-quantum-cu1x pins its own compatible cupy release (e.g. 0.15.1
+#    requires cupy-cuda12x>=13.6,<13.7), so the bounds above are loose on
+#    purpose - do not add tighter cupy pins or resolution will conflict.
+#  * Depend on cuda-quantum-cu1x, NOT the `cudaq` meta-package: `cudaq` is
+#    dist-info only (it merely pins cuda-quantum-cu12==<version>), while
+#    cuda-quantum-cu1x is what actually ships the importable `cudaq` module.
+#  * cudaq pulls in custatevec / cutensornet; cupy provides GPU diagonalisation.

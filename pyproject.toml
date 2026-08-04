@@ -7,39 +7,63 @@ name = "aqs"
 version = "2.0.0"
 description = "Adiabatic Quantum Simulation toolkit for topological properties (SSH-Hubbard + arbitrary Hamiltonians, qiskit/CUDA-Q backends)"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Ssu Yi Chen" }]
 
-# Core dependencies adapt to the Python version automatically (PEP 508 markers):
-#   * Python 3.9   -> conservative pins (newer Rust wheels fail to import there)
-#   * Python 3.10+ -> current releases (matches the reference GPU venv:
-#                     qiskit 2.3, openfermion 1.7.1, numpy 2.x, scipy 1.16)
+# Core (CPU) dependencies. These carry no CUDA requirement, so a plain
+# `uv sync` produces a working CPU-only environment on any platform.
 dependencies = [
-    # --- Python 3.9 (conservative pins) ---
-    "qiskit==1.0.2;     python_version < '3.10'",
-    "rustworkx==0.15.1; python_version < '3.10'",
-    "numpy>=1.23,<2;    python_version < '3.10'",
-    # --- Python 3.10+ (current releases) ---
-    "qiskit>=1.0;       python_version >= '3.10'",
-    "numpy>=1.23;       python_version >= '3.10'",
-    # --- version-independent ---
+    "qiskit>=1.0",
+    "numpy>=1.23",
     "openfermion>=1.5",
     "scipy>=1.9",
     "matplotlib>=3.5",
 ]
 
 [project.optional-dependencies]
-# GPU backend (NVIDIA CUDA-Q). Linux + NVIDIA GPU only.
-#   pip install "aqs[gpu]"      (or:  pip install -r requirements-gpu.txt)
-gpu = [
-    "cudaq>=0.13",
-    "cupy-cuda13x>=13",
+# ---------------------------------------------------------------------------
+# GPU backends (NVIDIA CUDA-Q). Linux + NVIDIA GPU only.
+#
+# Pick the extra that matches your *driver's* CUDA major version, which you can
+# read off the top-right of `nvidia-smi`:
+#
+#     CUDA 12.x driver (>= 525)   ->  uv sync --extra cu12
+#     CUDA 13.x driver (>= 580)   ->  uv sync --extra cu13
+#
+# These are mutually exclusive (see [tool.uv] conflicts below): installing the
+# cu13 wheels against a CUDA 12 driver fails at import time, which is why there
+# is no single "gpu" extra that tries to guess.
+#
+# cuda-quantum-cu1x pins its own compatible cupy release (e.g. 0.15.1 requires
+# cupy-cuda12x>=13.6,<13.7), so the cupy constraints below are deliberately
+# loose lower bounds - they declare the direct import in backends.py without
+# fighting CUDA-Q's pin.
+# ---------------------------------------------------------------------------
+cu12 = [
+    "cuda-quantum-cu12>=0.12",
+    "cupy-cuda12x>=13.4",
+]
+cu13 = [
+    # cuda-quantum-cu13 has no release supporting Python < 3.11.
+    "cuda-quantum-cu13>=0.13; python_version >= '3.11'",
+    "cupy-cuda13x>=13.6; python_version >= '3.11'",
 ]
 
 [project.scripts]
 aqs = "aqs.cli:main"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 packages = ["aqs"]
+
+# ---------------------------------------------------------------------------
+# uv configuration
+# ---------------------------------------------------------------------------
+[tool.uv]
+# cu12 and cu13 ship the same module names against different CUDA runtimes;
+# they can never be installed together. Declaring the conflict lets uv keep
+# both in a single uv.lock and still resolve each one independently.
+conflicts = [
+    [{ extra = "cu12" }, { extra = "cu13" }],
+]

@@ -1,22 +1,17 @@
 # AQS toolkit - core (CPU) dependencies.
-# Install:  py -m venv .venv ; .venv\Scripts\python -m pip install -r requirements.txt
 #
-# These pins match the reference GPU venv (Linux, Python 3.12):
-#   qiskit 2.3.0, openfermion 1.7.1, rustworkx 0.17.1, numpy 2.4, scipy 1.16, matplotlib 3.10
-# On Python 3.9 (the original Windows dev box) use the alternative pins below.
+# PREFERRED:  uv sync          (uv.lock is the authoritative pin set)
+# This file is a pip fallback only:
+#   py -m venv .venv ; .venv\Scripts\python -m pip install -r requirements.txt
+#
+# Requires Python >= 3.10, matching `requires-python` in pyproject.toml.
+# (The GPU extras cannot support 3.9 at all - cupy-cuda1xx requires >= 3.10 -
+# so the old 3.9 pin block was dropped when the project moved to uv.)
 
-# ---- Python 3.10+ (e.g. the reference Linux/GPU venv) ----
-qiskit>=2.0 ; python_version >= "3.10"
-openfermion>=1.7 ; python_version >= "3.10"
-rustworkx>=0.17 ; python_version >= "3.10"
-numpy>=2.0 ; python_version >= "3.10"
-
-# ---- Python 3.9 (older Windows box; newer Rust wheels fail to load) ----
-qiskit==1.0.2 ; python_version < "3.10"
-openfermion==1.6.1 ; python_version < "3.10"
-rustworkx==0.15.1 ; python_version < "3.10"
-numpy>=1.23,<2 ; python_version < "3.10"
-
-# ---- version-independent ----
+qiskit>=1.0
+openfermion>=1.5
+numpy>=1.23
 scipy>=1.9
 matplotlib>=3.5
+
+# For the GPU backend see requirements-gpu.txt (or: uv sync --extra cu12).
