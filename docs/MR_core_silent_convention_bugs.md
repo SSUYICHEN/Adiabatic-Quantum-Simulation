@@ -4,7 +4,7 @@
 |---|---|
 | **來源分支** | `fix/core-silent-convention-bugs` |
 | **目標分支** | `main` (`0fe9d1d`) |
-| **Commits** | 3 個修正 + 測試 |
+| **Commits** | 4 個修正 + 測試 |
 | **風險** | 修正一：零風險（逐位元相同）／修正二：**會改變既有數值結果** |
 
 > 本分支收斂「同一類」缺陷：包裝函式實際產生的么正算符 $\neq$ 它宣稱要實作的算符。
@@ -20,10 +20,9 @@
 | 1 | `create_R_gate` / `create_G_gate` / `create_CP_gate` 與 docstring 差因子 2 或負號 | **有** | **無**（逐位元相同） |
 | 2 | `_givens_instruction` 的 `cry` 反號 → 製備出能量**最高**的行列式態 | **無** | **有**（極化顯著改變） |
 | 3 | `CudaqBackend.statevector` 多做了一次位元反轉 | **無** | **有**（所有 GPU 電路結果） |
+| 4 | `load_hamiltonian` 未把 OpenFermion 大端序轉為 qiskit 小端序 | **無** | **有**（所有非對稱哈密頓量） |
 
-> 尚未納入本分支：`hamiltonian.py` 的 OpenFermion 大端序轉換。
-> 它位於精確對角化路徑（`load_hamiltonian` → `ground_state`），
-> 與上述三項所在的電路路徑無交集，兩個模組互不引用，故獨立處理。
+本分支至此涵蓋**全部四項**同類缺陷。
 
 兩者的根因相同：**沒有任何閘層級的契約測試**。差別只在呼叫端是否恰好抵銷。
 換句話說，缺陷 1 今天之所以「正確」，靠的是隱性補償而非設計；
@@ -211,6 +210,40 @@ qiskit 後端不受影響。
 
 ---
 
+## 修正四：OpenFermion → qiskit 位元序（`12b86ce`）
+
+`openfermion.get_sparse_operator` 把量子位元 $q$ 放在位元位置 $n-1-q$（**大端序**，
+`FermionOperator` 與 `QubitOperator` 皆然），而 qiskit 的 `Statevector`
+—— 以及 `observables.PROPERTIES` 中所有函式 —— 放在位元位置 $q$。
+`measure_hamiltonian` 未做任何轉換就把基態交給可觀測量，
+因此 operator 格式檔案的每一個回報量都是**位元反轉**的。
+
+實證：在四模式鏈的模式 0 設下深位能井，其密度卻在 qubit 3 被讀出。
+對 spinless 佈局而言，反轉同時**交換 A/B 次晶格**（偶↔奇 qubit 索引）
+並**倒轉晶胞順序**，所以極化分布是被取負且前後顛倒的：
+cell 0 回報 $-0.2488$，實際應 $> 0.5$。
+
+### 修正
+
+`load_hamiltonian` 改以置換相似變換 $H \to P H P^T$ 回傳小端序算符。
+$P$ 為置換矩陣，故此變換**嚴格保持全部本徵值**
+（於陷阱鏈驗證至 $1.8\times10^{-15}$，並以 $n=2..4$ 隨機 Hermitian 矩陣覆核），
+基態能量不受影響，改變的只有基底標記。
+
+矩陣格式（`dense_matrix` / `sparse_matrix`）**刻意不轉換** ——
+其慣例由呼叫者自行決定。
+
+### 影響
+
+| 對象 | 影響 |
+|---|---|
+| 內附兩個範例 | **無**。密度均勻（每格 0.5），位元反轉在其上是恆等操作；實測差異 $\leq 6.7\times10^{-14}$。 |
+| 任何非對稱哈密頓量 | **先前結果全錯**。 |
+
+這也解釋了此缺陷為何長期未被發現 —— 唯二的內附範例在結構上就無法偵測它。
+
+---
+
 ## 新增守門測試
 
 | 檔案 | 測試數 | 內容 |
@@ -218,6 +251,7 @@ qiskit 後端不受影響。
 | `tests/test_gate_primitives.py` | 6 | 各原語對照 docstring 算符；`G` 的反對稱性；有效哈密頓量往返 |
 | `tests/test_state_preparation.py` | 5 | Givens 矩陣元；$\det G$ 相位；**製備態能量 = 最低填充**；對照 OpenFermion 行列式；粒子數守恆 |
 | `tests/test_backend_endianness.py` | 5 | qiskit 小端序；CUDA-Q `get_state` 小端序；CUDA-Q 位元字串**相反**；後端一致性；隨機非對稱電路 |
+| `tests/test_hamiltonian_endianness.py` | 7 | 置換為對合；保譜；OpenFermion 大端序；陷阱粒子讀出位置；極化正負號；內附範例不變 |
 
 `test_backend_endianness.py` 在無 GPU 環境會自動跳過。其中「CUDA-Q 位元字串與
 qiskit 相反」一項不是在測缺陷，而是把陷阱**記錄成可執行的斷言** —— 未來 CUDA-Q
@@ -236,7 +270,7 @@ FAIL test_prepared_state_has_the_lowest_fill_energy:
      prepared E=+10.291503, lowest fill=-10.291503 (highest fill=+10.291503)
 ```
 
-修正後：`6/6`、`5/5`、`5/5` 全數通過。
+修正後：`6/6`、`5/5`、`5/5`、`7/7` 全數通過（共 23 個測試）。
 
 兩個關鍵測試的設計理由：
 
@@ -297,8 +331,9 @@ qc.append(create_CP_gate(dt * model.V_v * lam), ...)
 - [x] 修正一：逐位元相同，於指令串／態向量／可觀測量三層驗證
 - [x] 修正二：製備態能量在所有組態下精確等於最低填充
 - [x] 修正三：selftest 0.181 → 1.000，30 組隨機非對稱電路最差 1.0000000000
-- [x] 三組守門測試皆已反向驗證（修正前失敗、修正後通過）
+- [x] 修正四：陷阱粒子讀出位置正確；保譜至 $1.8\times10^{-15}$；內附範例不變
+- [x] 四組守門測試皆已反向驗證（修正前失敗、修正後通過）
 - [x] 影響已量化並記錄於本文件
 - [ ] 合併後重新生成所有極化圖表
 - [ ] 另一分支合併時協調 `spinless.py` 呼叫端
-- [ ] 後續：`hamiltonian.py` 的 OpenFermion 大端序轉換（獨立議題，尚未納入）
+- [x] 四項同類缺陷已全數收斂於本分支
