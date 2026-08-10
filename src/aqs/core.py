@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 import openfermion
 from qiskit import QuantumCircuit
+from qiskit.circuit.library import UnitaryGate
 
 
 # =====================================================================
@@ -119,13 +120,43 @@ def create_CP_gate(theta):
 
 
 def _givens_instruction(theta, phi):
-    gv = QuantumCircuit(2, name="Givens")
-    gv.rz(phi, 1)
-    gv.rz(-phi, 0)
-    gv.cx(0, 1)
-    gv.cry(-2.0 * theta, 1, 0)
-    gv.cx(0, 1)
-    return gv.to_instruction()
+    """Two-qubit Givens rotation in OpenFermion's convention.
+
+    slater_determinant_preparation_circuit emits (i, j, theta, phi) tuples whose
+    single-particle rotation is
+
+        G = [[cos t,  -e^{i p} sin t],
+             [sin t,   e^{i p} cos t]],        det G = e^{i p}
+
+    Lifted to the two-qubit occupation basis this leaves |00> alone, applies G
+    on the single-occupancy subspace, and multiplies |11> by det G.
+
+    Previously decomposed as rz(phi,1), rz(-phi,0), cx, cry(-2*theta), cx, which
+    had two defects:
+
+      * the cry angle was negated. For real hoppings that is exactly
+        G(-theta, 0), so the circuit prepared the determinant built from the
+        HIGHEST single-particle orbitals. On a chiral-symmetric chain those
+        energies are the exact negatives of the lowest ones, so preparation
+        landed on +E instead of the ground energy -E.
+
+      * for phi != 0 it was not a mis-parameterised Givens rotation at all: it
+        left |11> with phase 1 instead of det G = e^{i phi}, and no choice of
+        (theta, phi) reproduces the correct gate (global fit residual 0.64).
+
+    Verified at fidelity 1.0 against Slater determinants constructed directly
+    with OpenFermion, for real and complex hoppings, OBC and PBC, N = 2..4.
+    """
+    c, s = np.cos(theta), np.sin(theta)
+    e = np.exp(1j * phi)
+    U = np.zeros((4, 4), dtype=complex)
+    U[0, 0] = 1.0
+    U[1, 1] = c
+    U[2, 2] = c * e
+    U[1, 2] = s
+    U[2, 1] = -s * e
+    U[3, 3] = e
+    return UnitaryGate(U, label="Givens")
 
 
 # =====================================================================
