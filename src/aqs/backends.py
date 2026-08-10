@@ -98,11 +98,18 @@ class CudaqBackend(Backend):
         kernel = cudaq.make_kernel()
         q = kernel.qalloc(n)
 
-        # qiskit is little-endian (qubit 0 = LSB); CUDA-Q orders qubit 0 as the
-        # most-significant bit. Map qiskit qubit i -> CUDA-Q qubit (n-1-i) so the
-        # returned amplitude index matches qiskit's convention bit-for-bit.
+        # CUDA-Q's get_state() indexes amplitudes with qubit j at bit position j,
+        # i.e. the same little-endian convention qiskit's Statevector uses.
+        # Verified on the nvidia, nvidia-fp64 and qpp-cpu targets: X on qubit
+        # 0/1/2 of a 3-qubit kernel yields amplitude index 1/2/4.
+        #
+        # Do NOT "fix" this into a reversal. CUDA-Q is internally inconsistent:
+        # its sample() BITSTRINGS put qubit 0 leftmost (X on qubit 0 -> '100'),
+        # the opposite of qiskit's counts ('001'). That string convention is
+        # what the previous comment here described, but it does not apply to
+        # the statevector. `aqs selftest --backend cudaq` guards this.
         def cq(qiskit_index):
-            return q[n - 1 - qiskit_index]
+            return q[qiskit_index]
 
         for instr in tqc.data:
             name = instr.operation.name
