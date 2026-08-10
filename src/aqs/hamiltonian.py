@@ -77,6 +77,11 @@ def _bit_reversal_permutation(n_qubits):
     QubitOperator. qiskit's Statevector, and therefore every function in
     observables.PROPERTIES, places qubit q at bit position q. Reversing the bits
     of a basis index converts between the two.
+
+    Memory: this materialises 2**n_qubits int64 entries (128 MiB at n = 24).
+    That is well below the sparse operator it permutes, but it does scale
+    exponentially -- if the loader ever needs to go much beyond ~24 qubits,
+    permute the eigenvector instead of the matrix.
     """
     idx = np.arange(1 << n_qubits, dtype=np.int64)
     perm = np.zeros_like(idx)

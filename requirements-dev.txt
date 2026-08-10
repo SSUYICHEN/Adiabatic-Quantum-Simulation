@@ -1,0 +1,6 @@
+# Development / test dependencies (not needed to run aqs).
+#   python -m pip install -r requirements-dev.txt
+#   python -m pytest tests/ -q
+#   python -m coverage run --source=src/aqs -m pytest tests/ && python -m coverage report -m
+pytest>=7
+coverage>=7
