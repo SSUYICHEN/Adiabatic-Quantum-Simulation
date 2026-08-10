@@ -67,3 +67,19 @@ packages = ["aqs"]
 conflicts = [
     [{ extra = "cu12" }, { extra = "cu13" }],
 ]
+
+# ---------------------------------------------------------------------------
+# Test dependencies. uv installs the `dev` group by default, so a plain
+# `uv sync` gives you a runnable test suite; skip it with `uv sync --no-dev`.
+# Declared here rather than only in requirements-dev.txt so that `uv sync` does
+# not silently uninstall the test tooling -- uv makes the environment match the
+# lockfile exactly, and anything absent from it gets removed.
+#
+#   uv run pytest tests/ -q
+#   uv run coverage run --source=src/aqs -m pytest tests/ && uv run coverage report -m
+# ---------------------------------------------------------------------------
+[dependency-groups]
+dev = [
+    "pytest>=7",
+    "coverage>=7",
+]

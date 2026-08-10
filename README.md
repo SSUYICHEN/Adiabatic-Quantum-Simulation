@@ -57,6 +57,32 @@ CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
 py -m venv .venv
 pip install -e .                 # CPU
 pip install -e ".[cu12]"         # + GPU, CUDA 12.x driver
+pip install -r requirements-dev.txt   # tests
+```
+
+## Tests
+
+`pytest` and `coverage` are in the `dev` dependency group, which `uv sync`
+installs by default — no separate step.
+
+```bash
+uv run pytest tests/ -q
+
+uv run coverage run --source=src/aqs -m pytest tests/
+uv run coverage report -m
+```
+
+The suite covers the conventions that this codebase gets silently wrong: qubit
+bit-ordering (qiskit / CUDA-Q / OpenFermion each differ), gate-angle
+conventions, and Slater-determinant state preparation. The GPU tests skip
+cleanly without CUDA-Q. See `docs/experience.md` for what these guard against
+and why the shipped example Hamiltonians cannot detect ordering bugs.
+
+One-off verification scripts (not part of the suite) compare two revisions:
+
+```bash
+uv run python tests/verify_consistency_vs_main.py out.json
+uv run python tests/verify_consistency_vs_main.py --compare before.json after.json
 ```
 
 ## Workflow (built-in SSH-Hubbard model)

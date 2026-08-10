@@ -204,10 +204,12 @@ fix/cudaq-bit-order-and-uv-migration   c7057d1   7 commits
 | OpenFermion 大端序 | 內附範例不變；其他非對稱哈密頓量先前皆錯 |
 
 測試 112 個、覆蓋率 99%。MR 內文在 `docs/MR_core_silent_convention_bugs.md`。
+uv 環境設定（`pyproject.toml` / `uv.lock` / `.python-version`）已自另一分支移植過來，
+並額外加入 `dev` group，所以 `uv sync --extra cu12` 一次就給你可跑測試的完整環境。
 
 ### `fix/cudaq-bit-order-and-uv-migration`（新功能）
 
-uv 遷移、`spinless.py`（$2N$ 無自旋 SSH + 最近鄰交互作用）、實驗執行器、
+`spinless.py`（$2N$ 無自旋 SSH + 最近鄰交互作用）、實驗執行器、
 相圖、CLI 子指令。也**獨立修過** CUDA-Q 與 OpenFermion 位元序、Givens。
 
 ### ⚠️ 兩分支合併會靜默衝突
@@ -254,7 +256,7 @@ create_CP_gate(dt * V * lam)
 | `gh` | **未安裝**，無法自動開 PR |
 | `typst` | 0.15.0（snap）。**讀不到 `/tmp`**，暫存檔要放在專案目錄內 |
 | 字型 | 有 Noto CJK TC。**沒有** `New Computer Modern Sans`（只有 serif + math） |
-| pytest / coverage | 我手動裝進 venv；`uv sync` 會移除，見 `requirements-dev.txt` |
+| pytest / coverage | 已納入 `pyproject.toml` 的 `dev` group，`uv sync` 預設會裝。`requirements-dev.txt` 是 pip fallback |
 
 ### Typst 語法注意（0.15）
 
@@ -267,27 +269,34 @@ create_CP_gate(dt * V * lam)
 ## 7. 指令速查
 
 ```bash
-PY=.venv/bin/python                      # 直接用 venv，避免 uv 重新解析 pyproject
+# 環境建置（GPU 機器一律帶 --extra cu12，否則會移除 ~4 GB GPU 套件）
+uv sync --extra cu12
 
-# 測試與覆蓋率
-$PY -m pytest tests/ -q
-$PY -m coverage run --source=src/aqs -m pytest tests/ && $PY -m coverage report -m
+# 測試與覆蓋率（dev group 已含 pytest/coverage）
+uv run pytest tests/ -q
+uv run coverage run --source=src/aqs -m pytest tests/ && uv run coverage report -m
 
 # 兩後端自我測試（cudaq 那項是位元序的守門員）
-$PY -c "from aqs.backends import selftest; print(selftest('cudaq'))"
+uv run aqs selftest --backend qiskit
+uv run aqs selftest --backend cudaq
 
 # 跨 revision 一致性對照
-$PY tests/verify_consistency_vs_main.py out.json
-$PY tests/verify_consistency_vs_main.py --compare before.json after.json
+uv run python tests/verify_consistency_vs_main.py out.json
+uv run python tests/verify_consistency_vs_main.py --compare before.json after.json
 
 # 其他一次性驗證腳本
-$PY tests/verify_gate_norm_equivalence.py out.json    # 閘正規化：逐位元相同
-$PY tests/verify_givens_impact.py out.json            # Givens：量化影響
-
-# GPU 環境（另一分支才有 uv 設定）
-uv sync --extra cu12
-uv run aqs selftest --backend cudaq
+uv run python tests/verify_gate_norm_equivalence.py out.json   # 閘正規化：逐位元相同
+uv run python tests/verify_givens_impact.py out.json           # Givens：量化影響
 ```
+
+> 若要跨 revision 比對，**不要** `git stash -u`（會收走 4.2 GB 的 `.venv`）。
+> 用 worktree，並以 `PYTHONPATH` 指向該 worktree 的 `src`：
+>
+> ```bash
+> git worktree add -q --detach /path/wt main
+> PYTHONPATH=/path/wt/src .venv/bin/python /path/wt/vc.py before.json
+> git worktree remove --force /path/wt
+> ```
 
 ---
 
