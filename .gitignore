@@ -1,0 +1,47 @@
+# credentials / secrets
+**/mfa.py
+**/quokka_config.json
+*.token
+.aws/
+.qiskit/
+
+# results & manifests & data
+**/*_results/
+**/aqs_results/
+QA/
+test/
+
+# environments
+.venv/
+**/*_env/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# logs
+*.log
+nohup.out
+
+# images (generated figures)
+*.png
+
+# compiled binaries
+**/gpmc
+
+# build artifacts
+dist/
+*.whl
+
+# third-party tool (has its own repo; users install separately)
+QCE26/GPMC/
+GPMC/
+
+# build / egg-info
+**/*.egg-info/
+QCE26/src/aqs.egg-info/
+
+# logs directory
+QCE26/logs/
+**/logs/
+QCE26/setup_azure.py
+QCE26/azure_targets.txt

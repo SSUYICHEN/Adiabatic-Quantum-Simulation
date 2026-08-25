@@ -1,0 +1,7 @@
+{
+  "DEBUG": false,
+  "TIMEOUT": 300,
+  "ToolInvocation": "<PATH_TO>/qsharp_env/bin/gpmc -mode=1",
+  "GetResult": "exact double prec-sci ([0-9eE.+-]+i?)",
+  "FPE": 1e-12
+}
