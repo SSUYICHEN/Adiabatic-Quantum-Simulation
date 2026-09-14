@@ -55,7 +55,7 @@ aqs = "aqs.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["aqs"]
+packages = ["aqs", "aqs.models"]
 
 # ---------------------------------------------------------------------------
 # uv configuration
