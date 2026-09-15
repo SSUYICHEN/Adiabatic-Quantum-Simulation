@@ -12,6 +12,7 @@
 | 物理特徵測試 | 能帶、Berry 跳躍、邊緣極化、交互作用與收斂特徵 | `a4f2ae4` |
 | 技術文件 | 1063 行 Typst 架構與物理演算法文件 | `42efa34` |
 | Claude Code／Codex 共用與交接 | AGENTS.md、CLAUDE.md、core-rules.md、專案記憶備份、遷移報告及本進度 | 包含本文件的 commit |
+| 缺陷前後對照說明（2026-09-16） | `docs/defect_report/`：notebook（含輸出）、Typst 摘要、`results.json`、SVG 圖；供合併 PR 前溝通三個會改變結果的缺陷 | 本次 commit |
 
 先前分支已包含 gate primitive、Givens 態製備、CUDA-Q 與 OpenFermion
 端序修正，以及 uv／dev dependency 設定；詳見 `docs/experience.md` 與 Git 歷史。

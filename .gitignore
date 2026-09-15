@@ -2,5 +2,5 @@
 __pycache__/
 *.egg-info/
 aqs_results/
-docs/*.pdf
+docs/**/*.pdf
 .coverage
