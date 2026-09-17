@@ -44,4 +44,4 @@
    沒有專案級 Skills，未來需要時才新增共用 SKILL.md。
 5. **歷史文件與發行物**：細則與 experience 中的舊分支／環境資訊仍須按現況核對；
    `dist/` 的既有 2.0.0 檔案未更新，不能代表目前 src。
-6. **遠端備份**：本次僅完成本地 commits，尚未 push 或合併其他分支。
+6. **遠端備份**：2026-09-17 併入 `origin/main`（500d22c，只有 `.gitignore` 需手解）後 push 本分支並開 PR；PR 內文見 `docs/PR_to_main_2026-09-17.md`。`fix/cudaq-bit-order-and-uv-migration` 仍未合併。
