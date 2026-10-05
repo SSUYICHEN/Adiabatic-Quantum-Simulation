@@ -47,3 +47,20 @@ QCE26/setup_azure.py
 QCE26/azure_targets.txt
 
 doc/
+
+# generated reports / coverage data
+docs/**/*.pdf
+.coverage
+
+# local-only: AI agent instructions, rules, specs and project memory
+CLAUDE.md
+AGENTS.md
+core-rules.md
+.claude/
+docs/memory/
+docs/project-progress.md
+docs/experience.md
+tests/verify_consistency_vs_main.py
+
+# local-only archive: review reports, one-off scripts, superseded notes
+history/

@@ -17,20 +17,65 @@ This repository contains the official implementation of the paper:
 | `aqs selftest` | Verify a backend's statevector against qiskit (e.g. check CUDA-Q) |
 | `aqs plot` | (Re)draw any figure from saved JSON |
 
-## Install (CPU)
+## Install with uv (recommended)
+
+The project is managed with [uv](https://docs.astral.sh/uv/); `uv.lock` pins the
+whole environment, and `aqs` is always installed in **editable** mode, so edits
+under `src/aqs/` take effect immediately with no reinstall.
+
+```bash
+git clone https://github.com/SSUYICHEN/Adiabatic-Quantum-Simulation.git
+cd Adiabatic-Quantum-Simulation
+
+uv sync                 # CPU only (qiskit backend) - works on any platform
+uv sync --extra cu12    # + NVIDIA GPU, CUDA 12.x driver
+uv sync --extra cu13    # + NVIDIA GPU, CUDA 13.x driver
+
+uv run aqs selftest --backend cudaq   # verify the GPU backend
+uv run aqs berry --N 6 ...            # run any command
+```
+
+Pick the extra matching your **driver's** CUDA version, shown top-right in
+`nvidia-smi`: a `CUDA Version: 12.x` driver needs `cu12`, `13.x` needs `cu13`.
+They are mutually exclusive (declared under `[tool.uv] conflicts`) - the cu13
+wheels fail at import against a CUDA 12 driver, so there is no single `gpu`
+extra that guesses for you. `cu13` additionally requires Python >= 3.11.
+
+> **Note:** `uv sync` *without* an extra removes the GPU packages (~4 GB) from
+> the environment, since uv makes the venv exactly match what you asked for.
+> On a GPU box always pass `--extra cu12` (or `cu13`).
+
+`.python-version` pins Python 3.10, the interpreter this project's GPU results
+were verified on (CUDA-Q 0.12.0). Newer CUDA-Q (0.15.x) requires Python >= 3.11;
+to use it run `uv sync -p 3.12 --extra cu12`.
+
+CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
+
+### Install with pip (alternative)
 
 ```powershell
 py -m venv .venv
-pip install git+https://github.com/SSUYICHEN/Adiabatic-Quantum-Simulation.git
+pip install -e .                 # CPU
+pip install -e ".[cu12]"         # + GPU, CUDA 12.x driver
+pip install -r requirements-dev.txt   # tests
 ```
 
-## Install (GPU, NVIDIA CUDA-Q)
+## Tests
+
+`pytest` and `coverage` are in the `dev` dependency group, which `uv sync`
+installs by default — no separate step.
 
 ```bash
-pip install "aqs[gpu] @ git+https://github.com/SSUYICHEN/Adiabatic-Quantum-Simulation.git"
-aqs selftest --backend cudaq  # verify the GPU backend
+uv run pytest tests/ -q
+
+uv run coverage run --source=src/aqs -m pytest tests/
+uv run coverage report -m
 ```
-CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
+
+The suite covers the conventions that this codebase gets silently wrong: qubit
+bit-ordering (qiskit / CUDA-Q / OpenFermion each differ), gate-angle
+conventions, and Slater-determinant state preparation. The GPU tests skip
+cleanly without CUDA-Q.
 
 ## Workflow (built-in SSH-Hubbard model)
 

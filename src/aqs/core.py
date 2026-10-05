@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 import openfermion
 from qiskit import QuantumCircuit
+from qiskit.circuit.library import UnitaryGate
 
 
 # =====================================================================
@@ -84,7 +85,11 @@ class SSHHModel:
 # 2. Modular two-qubit gates
 # =====================================================================
 def create_R_gate(theta):
-    """exp(-i theta/2 (XX + YY)) : real (Hermitian) hopping term."""
+    """R(theta) = exp(-i theta/2 (XX + YY)) : real (Hermitian) hopping term.
+
+    Since rxx(p) = exp(-i p/2 XX) and XX commutes with YY, this is exactly
+    rxx(theta) . ryy(theta) -- no factor of two anywhere.
+    """
     qc = QuantumCircuit(2, name=f"R({theta:.3f})")
     qc.rxx(theta, 0, 1)
     qc.ryy(theta, 0, 1)
@@ -92,7 +97,11 @@ def create_R_gate(theta):
 
 
 def create_G_gate(theta):
-    """exp(-i theta/2 (YX - XY)) : imaginary hopping term."""
+    """G(theta) = exp(-i theta/2 (X0 Y1 - Y0 X1)) : imaginary hopping term.
+
+    Note the operator ordering: X on the FIRST qubit passed, Y on the second.
+    G is antisymmetric under swapping the two qubits, unlike R.
+    """
     qc = QuantumCircuit(2, name=f"G({theta:.3f})")
     qc.sdg(0); qc.rxx(-theta, 0, 1); qc.s(0)
     qc.sdg(1); qc.rxx(theta, 0, 1); qc.s(1)
@@ -100,20 +109,54 @@ def create_G_gate(theta):
 
 
 def create_CP_gate(theta):
-    """Controlled-phase : the on-site Hubbard interaction n_up n_dn."""
+    """CP(theta) = exp(-i theta n_i n_j) : density-density / on-site Hubbard term.
+
+    qiskit's cp(l) = diag(1, 1, 1, e^{+i l}), so the argument is negated to
+    realise exp(-i theta n_i n_j) = diag(1, 1, 1, e^{-i theta}).
+    """
     qc = QuantumCircuit(2, name=f"CP({theta:.3f})")
     qc.cp(-theta, 0, 1)
     return qc.to_instruction()
 
 
 def _givens_instruction(theta, phi):
-    gv = QuantumCircuit(2, name="Givens")
-    gv.rz(phi, 1)
-    gv.rz(-phi, 0)
-    gv.cx(0, 1)
-    gv.cry(-2.0 * theta, 1, 0)
-    gv.cx(0, 1)
-    return gv.to_instruction()
+    """Two-qubit Givens rotation in OpenFermion's convention.
+
+    slater_determinant_preparation_circuit emits (i, j, theta, phi) tuples whose
+    single-particle rotation is
+
+        G = [[cos t,  -e^{i p} sin t],
+             [sin t,   e^{i p} cos t]],        det G = e^{i p}
+
+    Lifted to the two-qubit occupation basis this leaves |00> alone, applies G
+    on the single-occupancy subspace, and multiplies |11> by det G.
+
+    Previously decomposed as rz(phi,1), rz(-phi,0), cx, cry(-2*theta), cx, which
+    had two defects:
+
+      * the cry angle was negated. For real hoppings that is exactly
+        G(-theta, 0), so the circuit prepared the determinant built from the
+        HIGHEST single-particle orbitals. On a chiral-symmetric chain those
+        energies are the exact negatives of the lowest ones, so preparation
+        landed on +E instead of the ground energy -E.
+
+      * for phi != 0 it was not a mis-parameterised Givens rotation at all: it
+        left |11> with phase 1 instead of det G = e^{i phi}, and no choice of
+        (theta, phi) reproduces the correct gate (global fit residual 0.64).
+
+    Verified at fidelity 1.0 against Slater determinants constructed directly
+    with OpenFermion, for real and complex hoppings, OBC and PBC, N = 2..4.
+    """
+    c, s = np.cos(theta), np.sin(theta)
+    e = np.exp(1j * phi)
+    U = np.zeros((4, 4), dtype=complex)
+    U[0, 0] = 1.0
+    U[1, 1] = c
+    U[2, 2] = c * e
+    U[1, 2] = s
+    U[2, 1] = -s * e
+    U[3, 3] = e
+    return UnitaryGate(U, label="Givens")
 
 
 # =====================================================================
@@ -156,6 +199,12 @@ def build_annealing_circuit(model: SSHHModel, Q_up, Q_dn,
                         continue
                     j = (i + 1) % L
                     w_R, w_I = float(np.real(t_val)), float(np.imag(t_val))
+                    # exp(-i tau H_bond) with H_bond = -Re(t)/2 (XX+YY)
+                    #                              + Im(t)/2 (X0Y1 - Y0X1)
+                    # in qiskit's little-endian basis, so R takes -tau*Re and
+                    # G takes +tau*Im. (Beware: openfermion's big-endian matrix
+                    # conjugates the imaginary part -- always compare against a
+                    # little-endian H when re-deriving the G sign.)
                     theta_R = -tau * w_R
                     theta_I = tau * w_I
                     f_R_up = -parity_up * theta_R if is_pbc_bond else theta_R

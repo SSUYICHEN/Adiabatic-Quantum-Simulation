@@ -106,6 +106,8 @@ class CudaqBackend(Backend):
         # Do NOT "fix" this into a reversal. CUDA-Q is internally inconsistent:
         # its sample() BITSTRINGS put qubit 0 leftmost (X on qubit 0 -> '100'),
         # the opposite of qiskit's counts ('001'). That string convention is
+        # what the previous comment here described, but it does not apply to
+        # the statevector. `aqs selftest --backend cudaq` guards this.
         def cq(qiskit_index):
             return q[qiskit_index]
 

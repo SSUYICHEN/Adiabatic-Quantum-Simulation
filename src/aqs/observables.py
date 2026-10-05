@@ -103,7 +103,13 @@ def density_profile(sv_np, L_sites):
 
 
 def wrap_berry_phase(z_N):
-    """Berry phase in units of pi, wrapped to (-1/2, 3/2]."""
+    """Berry phase in units of pi, wrapped to [-1/2, 3/2).
+
+    np.mod returns [0, 2*pi), so the interval is closed at the LOWER end -- the
+    docstring previously claimed the opposite convention. Floating-point
+    rounding can still land a value on either boundary, so callers comparing
+    against +-1/2 or 3/2 should allow a tolerance rather than assume strictness.
+    """
     raw = np.imag(np.log(z_N))
     return (np.mod(raw + np.pi / 2.0, 2.0 * np.pi) - np.pi / 2.0) / np.pi
 
@@ -129,6 +135,17 @@ def _prop_polarization(sv_np, layout):
     per_cell = max(1, len(layout.get("A_qubits", [])) // n_cells)
     A = layout.get("A_qubits", [])
     B = layout.get("B_qubits", [])
+    # A custom layout with unequal cell sizes yields A/B lists that do not tile
+    # into n_cells blocks of per_cell entries; indexing would then fail with a
+    # bare IndexError deep inside the loop. Say what is actually wrong instead.
+    # (Only polarization needs the sublattices -- 'berry' uses cell_qubits and
+    # still works on such a layout, so this is checked here, not at load time.)
+    if len(A) != n_cells * per_cell or len(B) != n_cells * per_cell:
+        raise ValueError(
+            f"polarization needs A_qubits and B_qubits to tile into {n_cells} "
+            f"cells of equal size; got len(A_qubits)={len(A)}, "
+            f"len(B_qubits)={len(B)}. Check the 'cell_qubits'/'A_qubits'/"
+            f"'B_qubits' metadata of this layout.")
     nA, nB, diff = [], [], []
     for j in range(n_cells):
         a = sum(dens[A[j * per_cell + k]] for k in range(per_cell))

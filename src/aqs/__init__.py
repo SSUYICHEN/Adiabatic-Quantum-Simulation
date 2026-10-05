@@ -35,9 +35,12 @@ from .observables import (
     wrap_berry_phase,
     PROPERTIES,
 )
+from .models.spinless import SpinlessSSHModel, SpinlessSSHHSim
 
 __all__ = [
     "SSHHModel",
+    "SpinlessSSHModel",
+    "SpinlessSSHHSim",
     "build_annealing_circuit",
     "create_R_gate",
     "create_G_gate",
