@@ -86,23 +86,23 @@ class SSHHModel:
 def create_R_gate(theta):
     """exp(-i theta/2 (XX + YY)) : real (Hermitian) hopping term."""
     qc = QuantumCircuit(2, name=f"R({theta:.3f})")
-    qc.rxx(theta / 2.0, 0, 1)
-    qc.ryy(theta / 2.0, 0, 1)
+    qc.rxx(theta, 0, 1)
+    qc.ryy(theta, 0, 1)
     return qc.to_instruction()
 
 
 def create_G_gate(theta):
     """exp(-i theta/2 (YX - XY)) : imaginary hopping term."""
     qc = QuantumCircuit(2, name=f"G({theta:.3f})")
-    qc.sdg(0); qc.rxx(theta / 2.0, 0, 1); qc.s(0)
-    qc.sdg(1); qc.rxx(-theta / 2.0, 0, 1); qc.s(1)
+    qc.sdg(0); qc.rxx(-theta, 0, 1); qc.s(0)
+    qc.sdg(1); qc.rxx(theta, 0, 1); qc.s(1)
     return qc.to_instruction()
 
 
 def create_CP_gate(theta):
     """Controlled-phase : the on-site Hubbard interaction n_up n_dn."""
     qc = QuantumCircuit(2, name=f"CP({theta:.3f})")
-    qc.cp(theta, 0, 1)
+    qc.cp(-theta, 0, 1)
     return qc.to_instruction()
 
 
@@ -156,8 +156,8 @@ def build_annealing_circuit(model: SSHHModel, Q_up, Q_dn,
                         continue
                     j = (i + 1) % L
                     w_R, w_I = float(np.real(t_val)), float(np.imag(t_val))
-                    theta_R = -2.0 * tau * w_R
-                    theta_I = -2.0 * tau * w_I
+                    theta_R = -tau * w_R
+                    theta_I = tau * w_I
                     f_R_up = -parity_up * theta_R if is_pbc_bond else theta_R
                     f_I_up = -parity_up * theta_I if is_pbc_bond else theta_I
                     if abs(w_R) > 1e-8:
@@ -179,7 +179,7 @@ def build_annealing_circuit(model: SSHHModel, Q_up, Q_dn,
                 for i in range(L):
                     current_U = U_A if i % 2 == 0 else U_B
                     if current_U != 0:
-                        theta_U = -tau * ramp * current_U
+                        theta_U = tau * ramp * current_U
                         qc.append(create_CP_gate(theta_U), [i, L + i])
 
     return qc

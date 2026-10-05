@@ -45,3 +45,5 @@ QCE26/logs/
 **/logs/
 QCE26/setup_azure.py
 QCE26/azure_targets.txt
+
+doc/
