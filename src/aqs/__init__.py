@@ -36,11 +36,14 @@ from .observables import (
     PROPERTIES,
 )
 from .models.spinless import SpinlessSSHModel, SpinlessSSHHSim
+from .models.hubbard import HubbardModel, HubbardSim
 
 __all__ = [
     "SSHHModel",
     "SpinlessSSHModel",
     "SpinlessSSHHSim",
+    "HubbardModel",
+    "HubbardSim",
     "build_annealing_circuit",
     "create_R_gate",
     "create_G_gate",
