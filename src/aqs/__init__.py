@@ -35,13 +35,13 @@ from .observables import (
     wrap_berry_phase,
     PROPERTIES,
 )
-from .models.spinless import SpinlessSSHModel, SpinlessSSHHSim
+from .models.spin_ssh import SpinSSHModel, SpinSSHHSim
 from .models.hubbard import HubbardModel, HubbardSim
 
 __all__ = [
     "SSHHModel",
-    "SpinlessSSHModel",
-    "SpinlessSSHHSim",
+    "SpinSSHModel",
+    "SpinSSHHSim",
     "HubbardModel",
     "HubbardSim",
     "build_annealing_circuit",

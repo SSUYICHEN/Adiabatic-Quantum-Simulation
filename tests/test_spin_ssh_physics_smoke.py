@@ -1,7 +1,7 @@
 """Physics smoke tests: paper signatures realized in the spinless model.
 
 Each test asserts one *physical characteristic* from the paper
-(.claude/specs/paper_theory/SSHH.md) in its spinless-model form
+(.claude/specs/paper_theory/SSHH.md) in its spin-sublattice form
 (.claude/specs/reconstruct_goals.md). These are qualitative gates -- fast,
 statevector-exact, thresholds calibrated with wide margins against measured
 values -- meant to catch "the physics silently changed", not to re-verify
@@ -16,12 +16,13 @@ Paper section map:
   Trotter/adiabatic convergence ......... Sec. V-A, Fig. 2
 
 Note on interactions: the paper breaks chiral symmetry with on-site
-U_A != U_B. The spinless model's nearest-neighbor V_v, V_w live on bonds and
-preserve inversion symmetry, so the Berry phase stays *quantized* for any
-(V_v, V_w); the topological signature instead breaks down through a
-first-order-like transition at strong coupling (measured: the topological
-gamma flips by pi between V=2 and V=4 at v=0.5, w=1.5). The robustness and
-breakdown tests below assert exactly that behavior.
+U_A != U_B. Here the Hubbard U acts between the two spin modes of a site
+(the SSH intracell pair) and preserves inversion symmetry, so the Berry
+phase stays *quantized* for any U; the topological signature instead
+breaks down at strong coupling (measured 2026-10-06: at v=0.5, w=1.5, N=6
+the exact z changes sign between U=2.75 and 3.0, and the ground state
+changes by a level crossing at U~4.3). The robustness and breakdown tests
+below assert exactly that behavior.
 """
 
 from __future__ import annotations
@@ -30,18 +31,18 @@ import numpy as np
 import pytest
 from qiskit.quantum_info import Statevector
 
-from aqs.models.spinless import SpinlessSSHModel, SpinlessSSHHSim
+from aqs.models.spin_ssh import SpinSSHModel, SpinSSHHSim
 from aqs.observables import density_profile_qubits
 
 
-def _prepared_state(model: SpinlessSSHModel) -> np.ndarray:
+def _prepared_state(model: SpinSSHModel) -> np.ndarray:
     """Exact SSH ground-state determinant (no evolution needed)."""
-    sim = SpinlessSSHHSim(model, T=1.0, L=1)
+    sim = SpinSSHHSim(model, T=1.0, L=1)
     return Statevector(sim.preparation_circuit()).data
 
 
-def _berry(model: SpinlessSSHModel, psi: np.ndarray) -> float:
-    return SpinlessSSHHSim(model, T=1.0, L=1).berry_phase(psi)
+def _berry(model: SpinSSHModel, psi: np.ndarray) -> float:
+    return SpinSSHHSim(model, T=1.0, L=1).berry_phase(psi)
 
 
 def _pi_distance(angle: float) -> float:
@@ -57,7 +58,7 @@ class TestBandStructure:
     def test_chiral_symmetry_makes_the_spectrum_symmetric(self):
         """A<->B chiral symmetry: single-particle levels come in +/-E pairs."""
         for pbc in (True, False):
-            model = SpinlessSSHModel(N_cells=6, v=0.7, w=1.3, PBC=pbc)
+            model = SpinSSHModel(N=6, v=0.7, w=1.3, PBC=pbc)
             eigs = np.sort(
                 np.linalg.eigvalsh(model.single_particle_hamiltonian())
             )
@@ -66,7 +67,7 @@ class TestBandStructure:
     def test_gap_follows_eq24_and_closes_at_the_transition(self):
         """PBC gap = 2 min_k |v + w e^{ik}|; exactly zero at v = w (even N)."""
         def gap(v, w):
-            model = SpinlessSSHModel(N_cells=6, v=v, w=w, PBC=True)
+            model = SpinSSHModel(N=6, v=v, w=w, PBC=True)
             eigs = np.linalg.eigvalsh(model.single_particle_hamiltonian())
             return 2 * np.min(np.abs(eigs))
 
@@ -87,7 +88,7 @@ class TestBerryPhase:
     @pytest.mark.parametrize("v,w", [(1.5, 0.5), (0.5, 1.5), (1.0, 0.25), (0.25, 1.0)])
     def test_berry_phase_is_quantized_to_multiples_of_pi(self, v, w):
         """Inversion symmetry pins gamma to 0 or pi (mod 2 pi) in both phases."""
-        model = SpinlessSSHModel(N_cells=6, v=v, w=w, PBC=True)
+        model = SpinSSHModel(N=6, v=v, w=w, PBC=True)
         gamma = _berry(model, _prepared_state(model))
         assert _pi_distance(gamma) < 1e-6
 
@@ -99,7 +100,7 @@ class TestBerryPhase:
         """
         gammas = []
         for v, w in ((1.0, 0.75), (0.75, 1.0)):  # just either side of v = w
-            model = SpinlessSSHModel(N_cells=6, v=v, w=w, PBC=True)
+            model = SpinSSHModel(N=6, v=v, w=w, PBC=True)
             gammas.append(_berry(model, _prepared_state(model)))
         jump = abs(gammas[1] - gammas[0]) % (2 * np.pi)
         assert abs(jump - np.pi) < 1e-6
@@ -110,11 +111,11 @@ class TestBerryPhase:
         v=0.5, w=1.5 -> min{|v+w|, |v-w|} = 1, so V = 0.5 is 'weak'.
         Adiabatic evolution at the spec operating point T=1, L=40.
         """
-        model0 = SpinlessSSHModel(N_cells=6, v=0.5, w=1.5, PBC=True)
+        model0 = SpinSSHModel(N=6, v=0.5, w=1.5, PBC=True)
         gamma0 = _berry(model0, _prepared_state(model0))
-        sim = SpinlessSSHHSim(model0, T=1.0, L=40)
+        sim = SpinSSHHSim(model0, T=1.0, L=40)
         for V in (0.1, 0.5):
-            (rec,) = sim.interaction_sweep(V_points=((V, V),))
+            (rec,) = sim.interaction_sweep(U_values=(V,))
             diff = abs(rec["berry_phase"] - gamma0) % (2 * np.pi)
             assert min(diff, 2 * np.pi - diff) < 1e-3
 
@@ -125,10 +126,10 @@ class TestBerryPhase:
         a quantized pi flip (CDW-like transition) rather than the smooth
         de-quantization the paper's on-site Delta-U produces.
         """
-        model0 = SpinlessSSHModel(N_cells=6, v=0.5, w=1.5, PBC=True)
+        model0 = SpinSSHModel(N=6, v=0.5, w=1.5, PBC=True)
         gamma0 = _berry(model0, _prepared_state(model0))
-        sim = SpinlessSSHHSim(model0, T=1.0, L=40)
-        (rec,) = sim.interaction_sweep(V_points=((4.0, 4.0),))
+        sim = SpinSSHHSim(model0, T=1.0, L=40)
+        (rec,) = sim.interaction_sweep(U_values=(4.0,))
         diff = abs(rec["berry_phase"] - gamma0) % (2 * np.pi)
         assert abs(diff - np.pi) < 1e-2
         assert _pi_distance(rec["berry_phase"]) < 1e-2  # still quantized
@@ -141,30 +142,30 @@ class TestBerryPhase:
 class TestPolarization:
     def test_edge_localized_in_the_topological_phase(self):
         """w > v, n = N+1: polarization lives at the edges, not the bulk."""
-        model = SpinlessSSHModel(N_cells=6, v=0.1, w=1.0, PBC=False)
-        sim = SpinlessSSHHSim(model, T=1.0, L=1)
-        profile = sim.polarization_profile(_prepared_state(model))
+        model = SpinSSHModel(N=6, v=0.1, w=1.0, PBC=False)
+        sim = SpinSSHHSim(model, T=1.0, L=1)
+        profile = sim.magnetisation_profile(_prepared_state(model))
         assert abs(profile[0]) > 0.4
         assert max(abs(p) for p in profile[1:-1]) < 0.05
         # inversion antisymmetry of the profile
         np.testing.assert_allclose(profile, -profile[::-1], atol=1e-9)
 
-    def test_no_edge_polarization_in_the_trivial_phase(self):
+    def test_no_edge_magnetisation_in_the_trivial_phase(self):
         """v > w: no edge modes (bulk-boundary correspondence, w=0 case)."""
-        model = SpinlessSSHModel(
-            N_cells=6, v=1.0, w=0.1, PBC=False, n_particles=6
+        model = SpinSSHModel(
+            N=6, v=1.0, w=0.1, PBC=False, n_particles=6
         )
-        sim = SpinlessSSHHSim(model, T=1.0, L=1)
-        profile = sim.polarization_profile(_prepared_state(model))
+        sim = SpinSSHHSim(model, T=1.0, L=1)
+        profile = sim.magnetisation_profile(_prepared_state(model))
         assert max(abs(p) for p in profile) < 0.05
 
-    def test_edge_polarization_survives_weak_interaction(self):
+    def test_edge_magnetisation_survives_weak_interaction(self):
         """Fig. 4 bottom analog: weak V keeps the edge feature intact."""
-        model = SpinlessSSHModel(N_cells=6, v=0.1, w=1.0, PBC=False)
-        sim = SpinlessSSHHSim(model, T=1.0, L=40)
-        recs = sim.interaction_sweep(V_points=((0.0, 0.0), (0.1, 0.1)))
-        assert abs(recs[1]["edge_polarization"] - recs[0]["edge_polarization"]) < 0.05
-        assert abs(recs[1]["edge_polarization"]) > 0.4
+        model = SpinSSHModel(N=6, v=0.1, w=1.0, PBC=False)
+        sim = SpinSSHHSim(model, T=1.0, L=40)
+        recs = sim.interaction_sweep(U_values=(0.0, 0.1))
+        assert abs(recs[1]["edge_magnetisation"] - recs[0]["edge_magnetisation"]) < 0.05
+        assert abs(recs[1]["edge_magnetisation"]) > 0.4
 
 
 # ---------------------------------------------------------------------------
@@ -185,8 +186,8 @@ class TestEdgeOccupation:
         edge_qubits = (0, 1, 2 * N - 2, 2 * N - 1)  # cells 0 and N-1
         occupations = []
         for n in range(1, 2 * N + 1):
-            model = SpinlessSSHModel(
-                N_cells=N, v=0.1, w=1.0, PBC=False, n_particles=n
+            model = SpinSSHModel(
+                N=N, v=0.1, w=1.0, PBC=False, n_particles=n
             )
             density = density_profile_qubits(_prepared_state(model), 2 * N)
             occupations.append(sum(density[q] for q in edge_qubits))
@@ -210,10 +211,10 @@ class TestConvergencePattern:
     def test_fidelity_improves_with_L_and_degrades_with_T(self):
         """Fig. 2 pattern: at fixed L the fidelity is worse for longer T;
         at fixed T it improves monotonically with L."""
-        model = SpinlessSSHModel(N_cells=3, v=0.5, w=1.5, PBC=True)
+        model = SpinSSHModel(N=3, v=0.5, w=1.5, PBC=True)
         fid = {}
         for T in (1.0, 15.0):
-            sim = SpinlessSSHHSim(model, T=T, L=1)
+            sim = SpinSSHHSim(model, T=T, L=1)
             records = sim.trotter_benchmark(L_values=(10, 40))
             fid[T] = [r["fidelity"] for r in records]
             assert fid[T][1] > fid[T][0]
