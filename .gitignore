@@ -64,3 +64,9 @@ tests/verify_consistency_vs_main.py
 
 # local-only archive: review reports, one-off scripts, superseded notes
 history/
+
+# local-only: manuscript working copy (the Overleaf project is the shared copy)
+report/
+
+# tool caches
+.pytest_cache/
