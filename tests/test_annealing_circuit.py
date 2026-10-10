@@ -9,7 +9,8 @@ import numpy as np
 import pytest
 from scipy.linalg import expm
 
-from aqs.core import SSHHModel, build_annealing_circuit
+from aqs.models.sshh import SSHHModel
+from aqs.circuits.trotter import build_annealing_circuit
 from aqs.backends import get_backend
 
 _BK = get_backend("qiskit")

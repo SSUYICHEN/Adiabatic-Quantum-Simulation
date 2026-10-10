@@ -1,4 +1,4 @@
-"""Guard tests for Slater-determinant state preparation (core._givens_instruction).
+"""Guard tests for Slater-determinant state preparation (aqs.slater).
 
 The defect these pin down was silent for a long time because fidelity_scan --
 the only existing check that touches state preparation -- compares the evolved
@@ -12,11 +12,14 @@ determinant built directly with OpenFermion).
 Runs under pytest, or standalone:  python tests/test_state_preparation.py
 """
 import numpy as np
+import pytest
 import openfermion as of
 from qiskit import QuantumCircuit
-from qiskit.quantum_info import Operator
+from qiskit.quantum_info import Operator, Statevector
 
-from aqs.core import SSHHModel, build_annealing_circuit, _givens_instruction
+from aqs.models.sshh import SSHHModel
+from aqs.circuits.trotter import build_annealing_circuit
+from aqs.circuits.state_prep import givens_gate, prepare_slater_determinant
 from aqs.backends import get_backend
 
 _BK = get_backend("qiskit")
@@ -68,15 +71,60 @@ def test_givens_matches_openfermion_convention():
             [0, -s * e, c * e, 0],
             [0, 0, 0, e],
         ], dtype=complex)
-        got = _as_matrix(_givens_instruction(theta, phi))
+        got = _as_matrix(givens_gate(theta, phi))
         assert np.allclose(got, want, atol=1e-10), f"(theta,phi)=({theta},{phi})"
 
 
 def test_givens_carries_the_determinant_phase_on_the_doubly_occupied_state():
     """|11> must pick up det G = e^{i phi}; the old decomposition left it at 1."""
     phi = 0.9
-    got = _as_matrix(_givens_instruction(0.7, phi))
+    got = _as_matrix(givens_gate(0.7, phi))
     assert abs(got[3, 3] - np.exp(1j * phi)) < 1e-10, got[3, 3]
+
+
+def test_givens_equals_openfermions_own_gate_realisation():
+    """Same unitary as OpenFermion's cirq implementation of the (i, j, theta, phi) tuple.
+
+    openfermion.circuits.primitives.state_preparation realises every Givens
+    tuple as  Ryxxy(theta) on (i, j)  followed by  Z(j) ** (phi / pi).
+    Comparing against that (converted from cirq's big-endian to qiskit's
+    little-endian qubit order) ties our gate to OpenFermion itself rather
+    than to a hand-typed matrix.
+    """
+    cirq = pytest.importorskip("cirq")
+    from openfermion.circuits import Ryxxy
+
+    q = cirq.LineQubit.range(2)
+    swap = np.eye(4)[[0, 2, 1, 3]]
+    for theta, phi in [(0.37, 0.81), (-1.2, 2.5), (0.9, 0.0), (0.0, 1.1)]:
+        U_of = cirq.unitary(cirq.Circuit(Ryxxy(theta).on(q[0], q[1]),
+                                         cirq.Z(q[1]) ** (phi / np.pi)))
+        got = _as_matrix(givens_gate(theta, phi))
+        assert np.allclose(got, swap @ U_of @ swap, atol=1e-10), (theta, phi)
+
+
+def test_prepare_slater_determinant_matches_jw_slater_determinant_on_a_qubit_subset():
+    """The adapter on an arbitrary orthonormal Q, placed on a subset of qubits,
+    equals OpenFermion's own jw_slater_determinant(Q) (endian-converted) on
+    those qubits and leaves the others in |0>.
+
+    Complex Q (phi != 0 in the Givens tuples) and an offset qubit range, so
+    both the phase handling and the qubit relabelling are exercised.
+    """
+    rng = np.random.default_rng(3)
+    n_occ, n_modes, offset, n_total = 2, 4, 1, 6
+    A = rng.normal(size=(n_modes, n_modes)) + 1j * rng.normal(size=(n_modes, n_modes))
+    Q = np.linalg.qr(A)[0][:, :n_occ].T            # orthonormal rows
+    qc = QuantumCircuit(n_total)
+    prepare_slater_determinant(qc, Q, list(range(offset, offset + n_modes)))
+    got = Statevector(qc).data
+    ref_small = _bit_reverse(np.asarray(of.jw_slater_determinant(Q)).ravel(), n_modes)
+    # embed: qubits [offset, offset+n_modes) carry the determinant, the rest are |0>
+    want = np.zeros(2 ** n_total, dtype=complex)
+    for idx, amp in enumerate(ref_small):
+        want[idx << offset] = amp
+    overlap = abs(np.vdot(want, got)) ** 2
+    assert abs(overlap - 1.0) < 1e-10, overlap
 
 
 # ------------------------------------------- 2. preparation lands on the GROUND state

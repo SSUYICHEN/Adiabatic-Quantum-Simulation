@@ -19,7 +19,8 @@ import os
 
 import numpy as np
 
-from .core import SSHHModel, build_annealing_circuit
+from .models.sshh import SSHHModel
+from .circuits.trotter import build_annealing_circuit
 from .observables import twist_invariant, density_profile, wrap_berry_phase
 from .backends import get_backend
 

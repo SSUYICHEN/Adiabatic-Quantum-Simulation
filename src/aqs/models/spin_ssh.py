@@ -47,17 +47,12 @@ from dataclasses import dataclass, field, replace
 from typing import Iterable, Sequence
 
 import numpy as np
-import openfermion
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import SparsePauliOp, Statevector
 from scipy.sparse.linalg import expm_multiply
 
-from aqs.core import (
-    create_CP_gate,
-    create_G_gate,
-    create_R_gate,
-    _givens_instruction,
-)
+from aqs.circuits.gates import create_CP_gate, create_G_gate, create_R_gate
+from aqs.circuits.state_prep import prepare_slater_determinant
 from aqs.observables import _bit, _nonzero_probs, density_profile_qubits
 
 
@@ -245,20 +240,8 @@ class SpinSSHHSim:
         """
         model = self.model
         qc = QuantumCircuit(model.n_modes)
-        for q in range(model.n_particles):
-            qc.x(q)
-        circuit_description = openfermion.circuits.slater_determinant_preparation_circuit(
-            model.slater_Q_matrix()
-        )
-        for parallel_ops in circuit_description:
-            for op in parallel_ops:
-                if not (isinstance(op, tuple) and len(op) == 4):
-                    raise NotImplementedError(
-                        f"unsupported Givens operation from OpenFermion: {op!r}"
-                    )
-                j, k, theta, phi = op
-                qc.append(_givens_instruction(theta, phi), [j, k])
-        return qc
+        return prepare_slater_determinant(
+            qc, model.slater_Q_matrix(), list(range(model.n_modes)))
 
     def trotter_circuit(self) -> QuantumCircuit:
         """L Trotter layers of the lambda-ramped evolution (spec sec. 3.2).

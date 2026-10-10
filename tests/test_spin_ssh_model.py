@@ -39,7 +39,7 @@ import pytest
 from qiskit.quantum_info import Operator, Statevector
 from scipy.linalg import expm, logm
 
-from aqs.hamiltonian import _to_little_endian
+from aqs.mapping import _to_little_endian
 from aqs.models.spin_ssh import (
     SpinSSHModel,
     SpinSSHHSim,

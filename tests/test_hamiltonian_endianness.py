@@ -20,8 +20,8 @@ import tempfile
 import numpy as np
 import openfermion as of
 
-from aqs.hamiltonian import (_bit_reversal_permutation, _to_little_endian,
-                             load_hamiltonian, measure_hamiltonian)
+from aqs.mapping import _bit_reversal_permutation, _to_little_endian
+from aqs.hamiltonian import load_hamiltonian, measure_hamiltonian
 from aqs.backends import get_backend
 from aqs.observables import density_profile_qubits
 

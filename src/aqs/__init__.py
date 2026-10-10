@@ -21,13 +21,9 @@ This was previously the SSH-only `sshh_qa` package; it is now generalised.
 
 __version__ = "2.0.0"
 
-from .core import (
-    SSHHModel,
-    build_annealing_circuit,
-    create_R_gate,
-    create_G_gate,
-    create_CP_gate,
-)
+from .models.sshh import SSHHModel
+from .circuits.gates import create_R_gate, create_G_gate, create_CP_gate
+from .circuits.trotter import build_annealing_circuit
 from .observables import (
     twist_invariant,
     twist_invariant_layout,

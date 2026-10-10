@@ -154,12 +154,19 @@ aqs_results/
 
 | File | Role |
 |------|------|
-| `src/aqs/core.py` | SSH-Hubbard model, gates, parity-corrected annealing circuit |
+| `src/aqs/models/sshh.py` | the paper's spinful SSH-Hubbard model (single-particle H, Slater Q matrices) |
+| `src/aqs/models/spin_ssh.py` | SSH-Hubbard chain with spin as the sublattice (`SpinSSHModel`, `SpinSSHHSim`) |
+| `src/aqs/models/hubbard.py` | uniform Hubbard chain (`HubbardModel`, `HubbardSim`) |
+| `src/aqs/circuits/gates.py` | the R / G / CP two-qubit primitives |
+| `src/aqs/circuits/state_prep.py` | OpenFermion → qiskit Slater-determinant preparation |
+| `src/aqs/circuits/trotter.py` | parity-corrected annealing circuit of the spinful model |
+| `src/aqs/mapping.py` | bit-order conversions (OpenFermion big-endian → qiskit little-endian) |
 | `src/aqs/observables.py` | twist invariant, density, **property registry** |
-| `src/aqs/backends.py` | qiskit (CPU) / cudaq (GPU) backends + selftest |
+| `src/aqs/backends/` | qiskit (CPU) / cudaq (GPU) backends + selftest |
 | `src/aqs/hamiltonian.py` | load arbitrary Hamiltonian files → ground state + measure |
 | `src/aqs/experiments.py` | `fidelity_scan`, `berry_sweep`, `polarization_sweep` |
 | `src/aqs/plotting.py` | the three figure types |
+| `src/aqs/core.py` | compatibility re-exports of the old flat API |
 | `src/aqs/cli.py` | the `aqs` command-line interface |
 
 Run `aqs <command> -h` for the full option list of each command.

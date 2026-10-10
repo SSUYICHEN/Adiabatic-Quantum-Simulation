@@ -15,7 +15,7 @@ import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import Operator
 
-from aqs.core import create_R_gate, create_G_gate, create_CP_gate
+from aqs.circuits.gates import create_R_gate, create_G_gate, create_CP_gate
 
 # --------------------------------------------------------------------- helpers
 _X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -121,7 +121,8 @@ def test_trotter_bond_reproduces_the_true_hamiltonian():
 def test_annealing_circuit_bond_angles_are_convention_consistent():
     """End-to-end: the built circuit must evolve under the intended H."""
     from scipy.linalg import expm
-    from aqs.core import SSHHModel, build_annealing_circuit
+    from aqs.models.sshh import SSHHModel
+    from aqs.circuits.trotter import build_annealing_circuit
     from aqs.backends import get_backend
     bk = get_backend("qiskit")
     m = SSHHModel.from_total_electrons(2, 1.0, 1.5, 4, PBC=False)

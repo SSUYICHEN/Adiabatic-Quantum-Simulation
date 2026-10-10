@@ -38,6 +38,7 @@ import os
 import numpy as np
 
 from .observables import spin_block_layout, PROPERTIES
+from .mapping import _bit_reversal_permutation, _to_little_endian  # re-exported for callers
 
 
 # --------------------------------------------------------------------- layout
@@ -67,37 +68,6 @@ def _coeff(c):
     if isinstance(c, (list, tuple)):
         return complex(c[0], c[1] if len(c) > 1 else 0.0)
     return complex(c)
-
-
-def _bit_reversal_permutation(n_qubits):
-    """Index map between OpenFermion's and qiskit's qubit orderings.
-
-    OpenFermion's get_sparse_operator places qubit q at bit position
-    (n_qubits - 1 - q) -- big-endian -- for both FermionOperator and
-    QubitOperator. qiskit's Statevector, and therefore every function in
-    observables.PROPERTIES, places qubit q at bit position q. Reversing the bits
-    of a basis index converts between the two.
-
-    Memory: this materialises 2**n_qubits int64 entries (128 MiB at n = 24).
-    That is well below the sparse operator it permutes, but it does scale
-    exponentially -- if the loader ever needs to go much beyond ~24 qubits,
-    permute the eigenvector instead of the matrix.
-    """
-    idx = np.arange(1 << n_qubits, dtype=np.int64)
-    perm = np.zeros_like(idx)
-    for p in range(n_qubits):
-        perm |= ((idx >> p) & 1) << (n_qubits - 1 - p)
-    return perm
-
-
-def _to_little_endian(H, n_qubits):
-    """Relabel a big-endian operator into qiskit's basis: H -> P H P^T.
-
-    P is a permutation matrix, so this is a unitary similarity transform: the
-    spectrum is preserved exactly and only the basis labelling changes.
-    """
-    perm = _bit_reversal_permutation(n_qubits)
-    return H[perm][:, perm]
 
 
 def _build_sparse(spec, base_dir):

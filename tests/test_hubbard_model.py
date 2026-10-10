@@ -35,7 +35,7 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector
 from scipy.linalg import expm
 
-from aqs.hamiltonian import _to_little_endian
+from aqs.mapping import _to_little_endian
 from aqs.models.hubbard import (
     HubbardModel,
     HubbardSim,

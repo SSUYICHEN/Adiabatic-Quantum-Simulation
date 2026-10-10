@@ -31,7 +31,8 @@ import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import SparsePauliOp, Statevector
 
-from aqs.core import SSHHModel, build_annealing_circuit
+from aqs.models.sshh import SSHHModel
+from aqs.circuits.trotter import build_annealing_circuit
 from aqs.observables import _bit, _nonzero_probs
 
 
