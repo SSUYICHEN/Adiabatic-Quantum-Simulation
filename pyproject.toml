@@ -7,7 +7,7 @@ name = "aqs"
 version = "2.0.0"
 description = "Adiabatic Quantum Simulation toolkit for topological properties (SSH-Hubbard + arbitrary Hamiltonians, qiskit/CUDA-Q/MLX backends)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Ssu Yi Chen" }]
 
@@ -39,19 +39,25 @@ dependencies = [
 # cu13 wheels against a CUDA 12 driver fails at import time, which is why there
 # is no single "gpu" extra that tries to guess.
 #
-# cuda-quantum-cu1x pins its own compatible cupy release (e.g. 0.15.1 requires
-# cupy-cuda12x>=13.6,<13.7), so the cupy constraints below are deliberately
-# loose lower bounds - they declare the direct import in backends.py without
-# fighting CUDA-Q's pin.
+# cuda-quantum-cu1x pins its own compatible cupy release (0.15 requires
+# cupy-cuda12x~=13.6.0), so the cupy constraints below are deliberately loose
+# lower bounds - they declare the direct import in backends/ without fighting
+# CUDA-Q's pin.
+#
+# CUDA-Q >= 0.13 ships wheels for Python 3.11+ only, which is what sets
+# requires-python above. The cu12 ceiling is deliberate: 0.16 (custatevec
+# 1.14) segfaults in the first gate of every custatevec target ("nvidia",
+# "nvidia-fp64") on a CUDA 12.6 driver (560.x, RTX 4090, verified 2026-10-12),
+# while 0.15.1 (custatevec 1.13) runs. Lift it once the driver is >= 580 - at
+# that point prefer the cu13 extra anyway.
 # ---------------------------------------------------------------------------
 cu12 = [
-    "cuda-quantum-cu12>=0.12",
-    "cupy-cuda12x>=13.4",
+    "cuda-quantum-cu12>=0.15,<0.16",
+    "cupy-cuda12x>=13.6",
 ]
 cu13 = [
-    # cuda-quantum-cu13 has no release supporting Python < 3.11.
-    "cuda-quantum-cu13>=0.13; python_version >= '3.11'",
-    "cupy-cuda13x>=13.6; python_version >= '3.11'",
+    "cuda-quantum-cu13>=0.15",
+    "cupy-cuda13x>=13.6",
 ]
 
 [project.scripts]

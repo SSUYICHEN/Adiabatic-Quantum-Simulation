@@ -46,9 +46,11 @@ extra that guesses for you. `cu13` additionally requires Python >= 3.11.
 > the environment, since uv makes the venv exactly match what you asked for.
 > On a GPU box always pass `--extra cu12` (or `cu13`).
 
-`.python-version` pins Python 3.10, the interpreter this project's GPU results
-were verified on (CUDA-Q 0.12.0). Newer CUDA-Q (0.15.x) requires Python >= 3.11;
-to use it run `uv sync -p 3.12 --extra cu12`.
+`.python-version` pins Python 3.12, the interpreter both the GPU results
+(CUDA-Q 0.15.1, RTX 4090) and the Mac results (MLX) were verified on. CUDA-Q
+>= 0.13 ships wheels for Python 3.11+ only, hence `requires-python >= 3.11`.
+The `cu12` extra caps CUDA-Q at `< 0.16`: 0.16 segfaults on CUDA 12.6 drivers
+(560.x); see the comment in `pyproject.toml`.
 
 CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
 
