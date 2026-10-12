@@ -12,17 +12,27 @@ A backend provides two capabilities:
         Lowest-eigenvalue eigenvector of a (sparse) Hermitian Hamiltonian, used
         for the arbitrary-Hamiltonian path (exact diagonalisation).
 
-Three backends:
+Four backends:
   * 'qiskit' : CPU. qiskit Statevector + scipy sparse eigsh.       (default, tested)
   * 'cudaq'  : GPU. NVIDIA CUDA-Q statevector + cupy GPU eigsh.    (Linux+GPU only)
+  * 'cupy'   : GPU. custom CUDA kernel statevector (complex128)
+               + cupy GPU eigsh.                                   (Linux+GPU only)
   * 'mlx'    : GPU. Apple MLX custom Metal kernel statevector
                (complex64) + scipy eigsh on the CPU.               (Apple silicon only)
 
-The cudaq and mlx backends are import-guarded: constructing one without its
-package installed raises a clear error. Because CUDA-Q is Linux/GPU-only it
-cannot be exercised on a Windows/CPU box; run `aqs selftest --backend cudaq`
+The GPU backends are import-guarded: constructing one without its package
+installed raises a clear error. Because CUDA-Q is Linux/GPU-only it cannot be
+exercised on a Windows/CPU box; run `aqs selftest --backend cudaq` (or `cupy`)
 on the GPU machine to verify it (including the qiskit<->cudaq endianness
 mapping) against qiskit. Likewise `aqs selftest --backend mlx` on a Mac.
+
+Why both 'cudaq' and 'cupy' on NVIDIA: the cudaq path transpiles every gate to
+{rx, ry, rz, cx} (about 14 basis ops per two-qubit gate) and hands CUDA-Q one
+kernel with all of them, whose compilation grows superlinearly with length: a
+16-qubit annealing circuit of 320 layers (54k basis ops) takes minutes while the
+GPU work is well under a second. The cupy backend applies each gate's exact
+unitary with one kernel launch (the MLX design in CUDA), so the time is the
+memory traffic of the statevector: the same circuit runs in seconds.
 """
 
 from __future__ import annotations
@@ -138,25 +148,164 @@ class CudaqBackend(Backend):
 
     # -- ground state via cupy GPU diagonalisation ---------------------
     def ground_state(self, H) -> np.ndarray:
+        return _cupy_ground_state(H, "the cudaq backend")
+
+
+def _cupy_ground_state(H, who) -> np.ndarray:
+    """Lowest eigenvector of H with cupy on the GPU (sparse eigsh or dense eigh)."""
+    try:
+        import cupy as cp
+        import cupyx.scipy.sparse as csp
+        from cupyx.scipy.sparse.linalg import eigsh as cu_eigsh
+    except Exception as e:  # pragma: no cover - GPU only
+        raise RuntimeError(f"cupy is required for GPU diagonalisation in {who}.") from e
+    import scipy.sparse as sp
+    if sp.issparse(H):
+        Hg = csp.csr_matrix(H.astype(complex))
+        if Hg.shape[0] <= 2:
+            vals, vecs = cp.linalg.eigh(Hg.toarray())
+            return cp.asnumpy(vecs[:, int(cp.argmin(vals))])
+        _, vecs = cu_eigsh(Hg, k=1, which="SA")
+        return cp.asnumpy(vecs[:, 0])
+    Hg = cp.asarray(np.asarray(H))
+    vals, vecs = cp.linalg.eigh(Hg)
+    return cp.asnumpy(vecs[:, int(cp.argmin(vals))])
+
+
+def _flatten_gates(circuit, qubit_map=None):
+    """([(unitary, [qubit, ...]), ...], global phase) of a circuit.
+
+    Every instruction on <= 2 qubits becomes its exact unitary (qiskit Operator,
+    little-endian: bit b of the matrix index <-> qubits[b]); wider instructions
+    are expanded through their definitions; non-unitary ones raise.
+    """
+    from qiskit.quantum_info import Operator
+    phase = float(circuit.global_phase)
+    gates = []
+    for instr in circuit.data:
+        op = instr.operation
+        qubits = [circuit.find_bit(b).index for b in instr.qubits]
+        if qubit_map is not None:
+            qubits = [qubit_map[q] for q in qubits]
+        if op.name in ("barrier", "id"):
+            continue
+        if instr.clbits or op.name in ("measure", "reset"):
+            raise NotImplementedError(
+                f"'{op.name}' is not unitary; this backend only simulates unitary circuits")
+        if len(qubits) <= 2:
+            gates.append((np.asarray(Operator(op).data), qubits))
+        elif op.definition is not None:
+            sub, sub_phase = _flatten_gates(op.definition, qubits)
+            gates.extend(sub)
+            phase += sub_phase
+        else:  # pragma: no cover
+            raise NotImplementedError(
+                f"{len(qubits)}-qubit gate '{op.name}' has no definition to expand")
+    return gates, phase
+
+
+# =====================================================================
+# cupy (GPU)  -- Linux + NVIDIA GPU only
+# =====================================================================
+# Same decomposition as the Metal kernels below, in CUDA and complex128: one
+# thread per block of 2^k amplitudes that a k-qubit gate mixes; the block is
+# read and written by that thread only, so the update is in place. U is the
+# gate's little-endian matrix (bit b of its index <-> qubit qs[b]).
+_CUPY_SOURCE = r"""
+#include <cupy/complex.cuh>
+extern "C" {
+__global__ void apply_1q(complex<double>* psi, const complex<double>* U, int q0,
+                         unsigned long long n_blocks) {
+    unsigned long long t = blockIdx.x * (unsigned long long)blockDim.x + threadIdx.x;
+    if (t >= n_blocks) return;
+    unsigned long long i = ((t >> q0) << (q0 + 1)) | (t & ((1ULL << q0) - 1ULL));
+    unsigned long long idx[2] = {i, i | (1ULL << q0)};
+    complex<double> a[2];
+    for (int j = 0; j < 2; ++j) a[j] = psi[idx[j]];
+    for (int k = 0; k < 2; ++k) {
+        complex<double> s(0.0, 0.0);
+        for (int j = 0; j < 2; ++j) s += U[2 * k + j] * a[j];
+        psi[idx[k]] = s;
+    }
+}
+__global__ void apply_2q(complex<double>* psi, const complex<double>* U, int q0, int q1,
+                         unsigned long long n_blocks) {
+    unsigned long long t = blockIdx.x * (unsigned long long)blockDim.x + threadIdx.x;
+    if (t >= n_blocks) return;
+    int lo = q0 < q1 ? q0 : q1, hi = q0 < q1 ? q1 : q0;
+    unsigned long long i = ((t >> lo) << (lo + 1)) | (t & ((1ULL << lo) - 1ULL));
+    i = ((i >> hi) << (hi + 1)) | (i & ((1ULL << hi) - 1ULL));
+    unsigned long long idx[4] = {i, i | (1ULL << q0), i | (1ULL << q1),
+                                 i | (1ULL << q0) | (1ULL << q1)};
+    complex<double> a[4];
+    for (int j = 0; j < 4; ++j) a[j] = psi[idx[j]];
+    for (int k = 0; k < 4; ++k) {
+        complex<double> s(0.0, 0.0);
+        for (int j = 0; j < 4; ++j) s += U[4 * k + j] * a[j];
+        psi[idx[k]] = s;
+    }
+}
+}
+"""
+
+
+class CupyBackend(Backend):
+    """Statevector on an NVIDIA GPU through a custom CUDA kernel (cupy RawModule).
+
+    Every instruction acting on <= 2 qubits is applied as its exact unitary in
+    complex128, so the result agrees with qiskit to round-off (1 - F ~ 1e-13 on
+    the annealing circuits) and the cost is one kernel launch and one pass over
+    the statevector per gate. ground_state uses cupy's sparse eigsh on the GPU.
+    """
+    name = "cupy"
+
+    def __init__(self):
         try:
             import cupy as cp
-            import cupyx.scipy.sparse as csp
-            from cupyx.scipy.sparse.linalg import eigsh as cu_eigsh
-        except Exception as e:  # pragma: no cover - GPU only
+            if cp.cuda.runtime.getDeviceCount() < 1:
+                raise RuntimeError("no CUDA device")
+            self._module = cp.RawModule(code=_CUPY_SOURCE)
+            self._k1 = self._module.get_function("apply_1q")
+            self._k2 = self._module.get_function("apply_2q")
+        except Exception as e:
             raise RuntimeError(
-                "cupy is required for GPU diagonalisation in the cudaq backend."
+                "cupy with a CUDA GPU is not available in this environment. The cupy "
+                "backend requires a Linux machine with an NVIDIA GPU and the `cupy` "
+                "package (`uv sync --extra cu12` or `cu13`). Elsewhere use --backend "
+                "qiskit (CPU) or, on an Apple-silicon Mac, --backend mlx."
             ) from e
-        import scipy.sparse as sp
-        if sp.issparse(H):
-            Hg = csp.csr_matrix(H.astype(complex))
-            if Hg.shape[0] <= 2:
-                vals, vecs = cp.linalg.eigh(Hg.toarray())
-                return cp.asnumpy(vecs[:, int(cp.argmin(vals))])
-            _, vecs = cu_eigsh(Hg, k=1, which="SA")
-            return cp.asnumpy(vecs[:, 0])
-        Hg = cp.asarray(np.asarray(H))
-        vals, vecs = cp.linalg.eigh(Hg)
-        return cp.asnumpy(vecs[:, int(cp.argmin(vals))])
+        self._cp = cp
+
+    def statevector(self, circuit) -> np.ndarray:
+        cp = self._cp
+        n = circuit.num_qubits
+        dim = 1 << n
+        gates, phase = _flatten_gates(circuit)
+        psi = cp.zeros(dim, dtype=np.complex128)
+        psi[0] = 1.0
+        # all gate matrices go up in one transfer; each launch reads its slice
+        U1 = [U for U, q in gates if len(q) == 1]
+        U2 = [U for U, q in gates if len(q) == 2]
+        U1g = cp.asarray(np.array(U1, dtype=np.complex128).reshape(-1, 4)) if U1 else None
+        U2g = cp.asarray(np.array(U2, dtype=np.complex128).reshape(-1, 16)) if U2 else None
+        i1 = i2 = 0
+        block = 256
+        for U, qubits in gates:
+            if len(qubits) == 1:
+                n_blocks = dim >> 1
+                grid = (max(1, (n_blocks + block - 1) // block),)
+                self._k1(grid, (block,), (psi, U1g[i1], np.int32(qubits[0]), np.uint64(n_blocks)))
+                i1 += 1
+            else:
+                n_blocks = dim >> 2
+                grid = (max(1, (n_blocks + block - 1) // block),)
+                self._k2(grid, (block,), (psi, U2g[i2], np.int32(qubits[0]), np.int32(qubits[1]),
+                                          np.uint64(n_blocks)))
+                i2 += 1
+        return cp.asnumpy(psi) * np.exp(1j * phase)
+
+    def ground_state(self, H) -> np.ndarray:
+        return _cupy_ground_state(H, "the cupy backend")
 
 
 # =====================================================================
@@ -241,34 +390,7 @@ class MlxBackend(Backend):
                                     output_names=["out"], source=_MLX_2Q_SOURCE),
         }
 
-    @staticmethod
-    def _gates(circuit, qubit_map=None):
-        """([(unitary, [qubit, ...]), ...], global phase) of a circuit, flattened."""
-        from qiskit.quantum_info import Operator
-        phase = float(circuit.global_phase)
-        gates = []
-        for instr in circuit.data:
-            op = instr.operation
-            qubits = [circuit.find_bit(b).index for b in instr.qubits]
-            if qubit_map is not None:
-                qubits = [qubit_map[q] for q in qubits]
-            if op.name in ("barrier", "id"):
-                continue
-            if instr.clbits or op.name in ("measure", "reset"):
-                raise NotImplementedError(
-                    f"'{op.name}' is not unitary; the mlx backend only simulates "
-                    "unitary circuits")
-            if len(qubits) <= 2:
-                gates.append((np.asarray(Operator(op).data), qubits))
-            elif op.definition is not None:
-                sub, sub_phase = MlxBackend._gates(op.definition, qubits)
-                gates.extend(sub)
-                phase += sub_phase
-            else:  # pragma: no cover
-                raise NotImplementedError(
-                    f"{len(qubits)}-qubit gate '{op.name}' has no definition to "
-                    "expand; extend backends.MlxBackend._gates")
-        return gates, phase
+    _gates = staticmethod(_flatten_gates)   # kept as the historical name
 
     def statevector(self, circuit) -> np.ndarray:
         mx = self._mx
@@ -310,9 +432,11 @@ def get_backend(name="qiskit", **kwargs) -> Backend:
         return QiskitBackend()
     if name == "cudaq":
         return CudaqBackend(**kwargs)
+    if name == "cupy":
+        return CupyBackend(**kwargs)
     if name == "mlx":
         return MlxBackend(**kwargs)
-    raise ValueError(f"unknown backend '{name}' (choose 'qiskit', 'cudaq' or 'mlx')")
+    raise ValueError(f"unknown backend '{name}' (choose 'qiskit', 'cudaq', 'cupy' or 'mlx')")
 
 
 def selftest(backend_name="qiskit"):

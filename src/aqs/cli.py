@@ -11,10 +11,11 @@ Arbitrary Hamiltonian file:
 
 Utilities:
   aqs plot --kind ... --data ...   # (re)draw from saved JSON
-  aqs selftest [--backend cudaq|mlx]   # verify a backend against qiskit
+  aqs selftest [--backend cudaq|cupy|mlx]   # verify a backend against qiskit
 
-Add --backend cudaq (NVIDIA GPU) or --backend mlx (Apple-silicon GPU) to any
-measurement command to run on a GPU.
+Add --backend cupy or cudaq (NVIDIA GPU) or --backend mlx (Apple-silicon GPU)
+to any measurement command to run on a GPU; cupy is the fast NVIDIA path for
+long circuits (cudaq recompiles the whole circuit as one kernel).
 Run `aqs <command> -h` for each command's options.
 """
 
@@ -182,9 +183,9 @@ def cmd_plot(a):
 
 # ------------------------------ parser -------------------------------
 def _add_backend(p):
-    p.add_argument("--backend", choices=["qiskit", "cudaq", "mlx"], default="qiskit",
-                   help="simulation backend (cudaq = NVIDIA GPU, Linux only; "
-                        "mlx = Apple-silicon GPU, macOS only)")
+    p.add_argument("--backend", choices=["qiskit", "cudaq", "cupy", "mlx"], default="qiskit",
+                   help="simulation backend (cupy, cudaq = NVIDIA GPU, Linux only, cupy is "
+                        "the fast one for deep circuits; mlx = Apple-silicon GPU, macOS only)")
 
 
 def build_parser():

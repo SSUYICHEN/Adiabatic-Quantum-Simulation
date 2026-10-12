@@ -31,7 +31,7 @@ uv sync                 # CPU (qiskit) on any platform; + MLX GPU on an M-chip M
 uv sync --extra cu12    # + NVIDIA GPU, CUDA 12.x driver
 uv sync --extra cu13    # + NVIDIA GPU, CUDA 13.x driver
 
-uv run aqs selftest --backend cudaq   # verify the NVIDIA GPU backend
+uv run aqs selftest --backend cupy    # verify the NVIDIA GPU backend (or cudaq)
 uv run aqs selftest --backend mlx     # verify the Apple-silicon GPU backend
 uv run aqs berry --N 6 ...            # run any command
 ```
@@ -150,11 +150,19 @@ Register a function `f(statevector, layout) -> dict` in
 | `--backend` | Hardware | Circuit statevector | Ground state (measure) |
 |-------------|----------|---------------------|------------------------|
 | `qiskit` (default) | CPU | qiskit `Statevector` | `scipy` sparse eigsh |
+| `cupy` | NVIDIA GPU | custom CUDA kernel per gate (complex128) | `cupy` GPU eigsh |
 | `cudaq` | NVIDIA GPU | CUDA-Q kernel + `get_state` | `cupy` GPU eigsh |
 | `mlx` | Apple-silicon GPU | custom MLX Metal kernel (complex64) | `scipy` sparse eigsh (CPU) |
 
 `aqs selftest --backend cudaq` builds a small circuit on both backends and
 checks the statevectors agree (also validates the qiskit↔CUDA-Q endianness map).
+
+Prefer `cupy` for the annealing circuits: `cudaq` transpiles every gate to
+`{rx, ry, rz, cx}` and compiles the whole circuit as one kernel, which grows
+superlinearly with depth (minutes for 16 qubits at 320 Trotter layers), while
+`cupy` applies each gate's exact 4×4 unitary with one kernel launch (0.5 s for
+the same circuit, 4 s for 24 qubits at 160 layers) and agrees with qiskit to
+1 − F ~ 1e-13.
 
 ## Output layout
 
@@ -178,7 +186,7 @@ aqs_results/
 | `src/aqs/circuits/trotter.py` | parity-corrected annealing circuit of the spinful model |
 | `src/aqs/mapping.py` | bit-order conversions (OpenFermion big-endian → qiskit little-endian) |
 | `src/aqs/observables.py` | twist invariant, density, **property registry** |
-| `src/aqs/backends/` | qiskit (CPU) / cudaq (NVIDIA GPU) / mlx (Apple GPU) backends + selftest |
+| `src/aqs/backends/` | qiskit (CPU) / cupy, cudaq (NVIDIA GPU) / mlx (Apple GPU) backends + selftest |
 | `src/aqs/hamiltonian.py` | load arbitrary Hamiltonian files → ground state + measure |
 | `src/aqs/experiments.py` | `fidelity_scan`, `berry_sweep`, `polarization_sweep` |
 | `src/aqs/plotting.py` | the three figure types |

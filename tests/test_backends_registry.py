@@ -240,3 +240,82 @@ def test_mlx_ground_state_uses_the_cpu_solver():
     v = np.asarray(get_backend("mlx").ground_state(M)).ravel()
     v = v / np.linalg.norm(v)
     assert float(np.real(np.vdot(v, M.toarray() @ v))) == pytest.approx(-2.0, abs=1e-8)
+
+
+# ------------------------------------------------ NVIDIA GPU statevector (cupy)
+def _have_cupy_gpu():
+    try:
+        get_backend("cupy")
+        return True
+    except Exception:
+        return False
+
+
+HAVE_CUPY = _have_cupy_gpu()
+cuda = pytest.mark.skipif(not HAVE_CUPY, reason="cupy / CUDA GPU unavailable")
+
+
+def test_cupy_import_guard_is_informative():
+    """Without cupy (or a GPU) the error must name the package, not ImportError."""
+    if HAVE_CUPY:
+        pytest.skip("cupy with a CUDA GPU is available; the guard path is unreachable here")
+    with pytest.raises(RuntimeError, match="cupy"):
+        get_backend("cupy")
+
+
+@cuda
+def test_cupy_selftest_passes():
+    ok, fid = selftest("cupy")
+    assert ok and fid == pytest.approx(1.0, abs=1e-12)
+
+
+@cuda
+def test_cupy_matches_qiskit_with_global_phase_and_a_wide_gate():
+    """Element-wise (phase-sensitive) agreement in double precision on an
+    asymmetric circuit; >2-qubit gates expand through their definition.
+    Killed by: swapping the two qubit indices of a 2-qubit gate in the kernel
+    (0.18-type endianness bug) or dropping the global phase."""
+    from qiskit import QuantumCircuit
+    from qiskit.quantum_info import Statevector
+    qc = QuantumCircuit(4, global_phase=0.7)
+    qc.h(0); qc.ry(0.3, 3); qc.ccx(0, 3, 1); qc.cp(0.9, 1, 2); qc.rxx(0.4, 2, 0)
+    ref = np.asarray(Statevector(qc).data)
+    got = get_backend("cupy").statevector(qc)
+    assert np.allclose(got, ref, atol=1e-12)
+
+
+@cuda
+def test_cupy_single_qubit_circuit():
+    from qiskit import QuantumCircuit
+    from qiskit.quantum_info import Statevector
+    qc = QuantumCircuit(1); qc.h(0); qc.s(0)
+    assert np.allclose(get_backend("cupy").statevector(qc), Statevector(qc).data, atol=1e-12)
+
+
+@cuda
+def test_cupy_rejects_measurement():
+    from qiskit import QuantumCircuit
+    qc = QuantumCircuit(1, 1); qc.h(0); qc.measure(0, 0)
+    with pytest.raises(NotImplementedError, match="not unitary"):
+        get_backend("cupy").statevector(qc)
+
+
+@cuda
+def test_cupy_spin_ssh_annealing_matches_qiskit_in_double_precision():
+    """The full annealing circuit (X + Givens prep, R/G/CP layers) with complex
+    hoppings, so the G gates and every 2-qubit phase are exercised."""
+    from aqs.models.spin_ssh import SpinSSHModel, SpinSSHHSim
+    sim = SpinSSHHSim(SpinSSHModel(4, 0.5 + 0.2j, 1.5 - 0.3j, U=2.0, PBC=True), T=1.0, L=20)
+    qc = sim.full_circuit()
+    ref = get_backend("qiskit").statevector(qc)
+    got = get_backend("cupy").statevector(qc)
+    assert np.linalg.norm(got) == pytest.approx(1.0, abs=1e-12)
+    assert np.allclose(got, ref, atol=1e-11)
+
+
+@cuda
+def test_cupy_ground_state():
+    M = sp.csr_matrix(np.diag([3.0, -2.0, 5.0, 1.0]).astype(complex))
+    v = np.asarray(get_backend("cupy").ground_state(M)).ravel()
+    v = v / np.linalg.norm(v)
+    assert float(np.real(np.vdot(v, M.toarray() @ v))) == pytest.approx(-2.0, abs=1e-8)
