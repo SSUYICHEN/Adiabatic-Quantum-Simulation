@@ -5,20 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aqs"
 version = "2.0.0"
-description = "Adiabatic Quantum Simulation toolkit for topological properties (SSH-Hubbard + arbitrary Hamiltonians, qiskit/CUDA-Q backends)"
+description = "Adiabatic Quantum Simulation toolkit for topological properties (SSH-Hubbard + arbitrary Hamiltonians, qiskit/CUDA-Q/MLX backends)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Ssu Yi Chen" }]
 
-# Core (CPU) dependencies. These carry no CUDA requirement, so a plain
-# `uv sync` produces a working CPU-only environment on any platform.
+# Core dependencies. These carry no CUDA requirement, so a plain `uv sync`
+# produces a working environment on any platform.
 dependencies = [
     "qiskit>=1.0",
     "numpy>=1.23",
     "openfermion>=1.5",
     "scipy>=1.9",
     "matplotlib>=3.5",
+    # Apple-silicon (M-series) GPU backend, `--backend mlx`. The marker means a
+    # plain `uv sync` on an M-chip Mac installs it and every other platform
+    # skips it. >=0.32 is the release the custom Metal kernel was verified on.
+    "mlx>=0.32; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.optional-dependencies]

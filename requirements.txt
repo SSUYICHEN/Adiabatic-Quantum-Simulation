@@ -1,4 +1,4 @@
-# AQS toolkit - core (CPU) dependencies.
+# AQS toolkit - core dependencies (+ the Apple-silicon GPU backend on M-chip Macs).
 #
 # PREFERRED:  uv sync          (uv.lock is the authoritative pin set)
 # This file is a pip fallback only:
@@ -13,5 +13,6 @@ openfermion>=1.5
 numpy>=1.23
 scipy>=1.9
 matplotlib>=3.5
+mlx>=0.32; sys_platform == "darwin" and platform_machine == "arm64"   # Apple-silicon GPU backend
 
 # For the GPU backend see requirements-gpu.txt (or: uv sync --extra cu12).

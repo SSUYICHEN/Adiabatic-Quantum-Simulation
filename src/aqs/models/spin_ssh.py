@@ -279,9 +279,17 @@ class SpinSSHHSim:
         qc.barrier()
         return qc.compose(self.trotter_circuit())
 
-    def evolve(self) -> np.ndarray:
-        """Statevector after preparation + adiabatic evolution."""
-        return Statevector(self.full_circuit()).data
+    def evolve(self, backend=None) -> np.ndarray:
+        """Statevector after preparation + adiabatic evolution.
+
+        backend: None for qiskit's Statevector, or a name / instance from
+        aqs.backends (e.g. "mlx" for the Apple-silicon GPU).
+        """
+        if backend is None:
+            return Statevector(self.full_circuit()).data
+        from aqs.backends import get_backend
+        bk = backend if hasattr(backend, "statevector") else get_backend(backend)
+        return bk.statevector(self.full_circuit())
 
     # -- observables (spec sec. 5) ------------------------------------
     def berry_phase(self, statevector: np.ndarray) -> float:

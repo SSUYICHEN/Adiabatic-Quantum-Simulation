@@ -8,9 +8,10 @@ Two model sources:
   * built-in SSH-Hubbard model    (parametrised by v, w, U, N, filling)
   * an arbitrary Hamiltonian file  (`aqs measure --hamiltonian H.json`)
 
-Two simulation backends:
+Three simulation backends:
   * qiskit  - CPU statevector (default)
   * cudaq   - NVIDIA CUDA-Q GPU statevector / cupy GPU diagonalisation
+  * mlx     - Apple-silicon GPU statevector (custom MLX Metal kernel)
 
 Two topological properties (extensible registry, see observables.py):
   * berry         - Berry phase (twist invariant, PBC)

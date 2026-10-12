@@ -161,3 +161,82 @@ def test_cudaq_falls_back_when_the_target_is_unavailable():
     ref = np.asarray(Statevector(qc).data)
     f = abs(np.vdot(ref, got)) ** 2 / (np.vdot(ref, ref) * np.vdot(got, got)).real
     assert float(f) == pytest.approx(1.0, abs=1e-6)
+
+
+# ------------------------------------------- Apple-silicon GPU paths (mlx)
+def _have_mlx():
+    try:
+        get_backend("mlx")
+        return True
+    except Exception:
+        return False
+
+
+HAVE_MLX = _have_mlx()
+metal = pytest.mark.skipif(not HAVE_MLX, reason="MLX / Metal GPU unavailable")
+
+
+def _fidelity(a, b):
+    return float(abs(np.vdot(a, b)) ** 2 / (np.vdot(a, a) * np.vdot(b, b)).real)
+
+
+def test_mlx_import_guard_is_informative():
+    """Without MLX/Metal the error must name the package, not ImportError."""
+    if HAVE_MLX:
+        pytest.skip("MLX with a Metal GPU is available; the guard path is unreachable here")
+    with pytest.raises(RuntimeError, match="MLX"):
+        get_backend("mlx")
+
+
+@metal
+def test_mlx_selftest_passes():
+    ok, fid = selftest("mlx")
+    assert ok and fid == pytest.approx(1.0, abs=1e-6)
+
+
+@metal
+def test_mlx_matches_qiskit_with_global_phase_and_a_wide_gate():
+    """Global phase is restored and >2-qubit gates expand through their definition."""
+    from qiskit import QuantumCircuit
+    from qiskit.quantum_info import Statevector
+    qc = QuantumCircuit(4, global_phase=0.7)
+    qc.h(0); qc.ry(0.3, 3); qc.ccx(0, 3, 1); qc.cp(0.9, 1, 2); qc.rxx(0.4, 2, 0)
+    ref = np.asarray(Statevector(qc).data)
+    got = get_backend("mlx").statevector(qc)
+    assert np.allclose(got, ref, atol=1e-6)        # phase-sensitive, not just |<.|.>|
+
+
+@metal
+def test_mlx_single_qubit_circuit():
+    from qiskit import QuantumCircuit
+    from qiskit.quantum_info import Statevector
+    qc = QuantumCircuit(1); qc.h(0); qc.s(0)
+    assert np.allclose(get_backend("mlx").statevector(qc), Statevector(qc).data, atol=1e-6)
+
+
+@metal
+def test_mlx_rejects_measurement():
+    from qiskit import QuantumCircuit
+    qc = QuantumCircuit(1, 1); qc.h(0); qc.measure(0, 0)
+    with pytest.raises(NotImplementedError, match="not unitary"):
+        get_backend("mlx").statevector(qc)
+
+
+@metal
+def test_mlx_hubbard_evolution_matches_qiskit():
+    """The full annealing circuit (Givens prep + R/CP Trotter layers) in complex64."""
+    from aqs.models.hubbard import HubbardModel, HubbardSim
+    sim = HubbardSim(HubbardModel(n_sites=4, t=1.0, U=4.0, PBC=False), T=2.0, L=20)
+    ref = sim.evolve()
+    got = sim.evolve(backend="mlx")
+    assert np.linalg.norm(got) == pytest.approx(1.0, abs=1e-12)
+    assert _fidelity(ref, got) == pytest.approx(1.0, abs=1e-9)
+    assert sim.energy(got) == pytest.approx(sim.energy(ref), abs=1e-5)
+
+
+@metal
+def test_mlx_ground_state_uses_the_cpu_solver():
+    M = sp.csr_matrix(np.diag([3.0, -2.0, 5.0, 1.0]).astype(complex))
+    v = np.asarray(get_backend("mlx").ground_state(M)).ravel()
+    v = v / np.linalg.norm(v)
+    assert float(np.real(np.vdot(v, M.toarray() @ v))) == pytest.approx(-2.0, abs=1e-8)

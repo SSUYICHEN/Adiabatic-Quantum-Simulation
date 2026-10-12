@@ -2,7 +2,7 @@
 
 Adiabatic Quantum Simulation of topological properties on a quantum simulator — for the built-in
 **SSH-Hubbard** model *or* **arbitrary Hamiltonian**, on a
-**CPU (qiskit)** or **NVIDIA GPU (CUDA-Q)** backend.
+**CPU (qiskit)**, **NVIDIA GPU (CUDA-Q)** or **Apple-silicon GPU (MLX)** backend.
 This repository contains the official implementation of the paper:
 [![arXiv](https://img.shields.io/badge/arXiv-2605.11823-b31b1b.svg)](https://arxiv.org/abs/2605.11823)
 
@@ -14,7 +14,7 @@ This repository contains the official implementation of the paper:
 | `aqs berry` | Berry phase (twist invariant, **PBC**) vs inter-cell hopping `w` |
 | `aqs polarization` | Electron polarization `⟨n_A⟩−⟨n_B⟩` (edge response, **OBC**) vs `ΔU` |
 | `aqs measure` | Topological properties of an **arbitrary Hamiltonian file** |
-| `aqs selftest` | Verify a backend's statevector against qiskit (e.g. check CUDA-Q) |
+| `aqs selftest` | Verify a backend's statevector against qiskit (e.g. check CUDA-Q or MLX) |
 | `aqs plot` | (Re)draw any figure from saved JSON |
 
 ## Install with uv (recommended)
@@ -27,11 +27,12 @@ under `src/aqs/` take effect immediately with no reinstall.
 git clone https://github.com/SSUYICHEN/Adiabatic-Quantum-Simulation.git
 cd Adiabatic-Quantum-Simulation
 
-uv sync                 # CPU only (qiskit backend) - works on any platform
+uv sync                 # CPU (qiskit) on any platform; + MLX GPU on an M-chip Mac
 uv sync --extra cu12    # + NVIDIA GPU, CUDA 12.x driver
 uv sync --extra cu13    # + NVIDIA GPU, CUDA 13.x driver
 
-uv run aqs selftest --backend cudaq   # verify the GPU backend
+uv run aqs selftest --backend cudaq   # verify the NVIDIA GPU backend
+uv run aqs selftest --backend mlx     # verify the Apple-silicon GPU backend
 uv run aqs berry --N 6 ...            # run any command
 ```
 
@@ -50,6 +51,18 @@ were verified on (CUDA-Q 0.12.0). Newer CUDA-Q (0.15.x) requires Python >= 3.11;
 to use it run `uv sync -p 3.12 --extra cu12`.
 
 CUDA-Q is Linux/GPU-only; on Windows use `--backend qiskit` (or run in WSL).
+
+### Apple silicon (M-series Macs)
+
+No extra is needed: `mlx` is a core dependency behind the marker
+`sys_platform == 'darwin' and platform_machine == 'arm64'`, so a plain
+`uv sync` on an M-chip Mac installs it (and every other platform skips it).
+`--backend mlx` then runs the circuit statevector on the Mac GPU through a
+custom Metal kernel, in complex64 since Apple GPUs have no float64; the result
+is renormalised and agrees with qiskit to 1 - F ~ 1e-12. On an M5 (16 GB) the
+20-qubit Hubbard annealing circuit (L = 40) takes 0.18 s against 35 s for qiskit
+`Statevector`. Unified memory caps practical sizes at ~26 qubits on 16 GB.
+In Python: `HubbardSim(...).evolve(backend="mlx")`.
 
 ### Install with pip (alternative)
 
@@ -136,6 +149,7 @@ Register a function `f(statevector, layout) -> dict` in
 |-------------|----------|---------------------|------------------------|
 | `qiskit` (default) | CPU | qiskit `Statevector` | `scipy` sparse eigsh |
 | `cudaq` | NVIDIA GPU | CUDA-Q kernel + `get_state` | `cupy` GPU eigsh |
+| `mlx` | Apple-silicon GPU | custom MLX Metal kernel (complex64) | `scipy` sparse eigsh (CPU) |
 
 `aqs selftest --backend cudaq` builds a small circuit on both backends and
 checks the statevectors agree (also validates the qiskit↔CUDA-Q endianness map).
@@ -162,7 +176,7 @@ aqs_results/
 | `src/aqs/circuits/trotter.py` | parity-corrected annealing circuit of the spinful model |
 | `src/aqs/mapping.py` | bit-order conversions (OpenFermion big-endian → qiskit little-endian) |
 | `src/aqs/observables.py` | twist invariant, density, **property registry** |
-| `src/aqs/backends/` | qiskit (CPU) / cudaq (GPU) backends + selftest |
+| `src/aqs/backends/` | qiskit (CPU) / cudaq (NVIDIA GPU) / mlx (Apple GPU) backends + selftest |
 | `src/aqs/hamiltonian.py` | load arbitrary Hamiltonian files → ground state + measure |
 | `src/aqs/experiments.py` | `fidelity_scan`, `berry_sweep`, `polarization_sweep` |
 | `src/aqs/plotting.py` | the three figure types |

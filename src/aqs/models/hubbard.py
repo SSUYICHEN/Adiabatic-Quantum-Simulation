@@ -219,9 +219,17 @@ class HubbardSim:
         """Stage 1 followed by the L-layer U ramp."""
         return self._circuit(self.L)
 
-    def evolve(self) -> np.ndarray:
-        """Statevector after preparation + adiabatic evolution."""
-        return Statevector(self.full_circuit()).data
+    def evolve(self, backend=None) -> np.ndarray:
+        """Statevector after preparation + adiabatic evolution.
+
+        backend: None for qiskit's Statevector, or a name / instance from
+        aqs.backends (e.g. "mlx" for the Apple-silicon GPU).
+        """
+        if backend is None:
+            return Statevector(self.full_circuit()).data
+        from aqs.backends import get_backend
+        bk = backend if hasattr(backend, "statevector") else get_backend(backend)
+        return bk.statevector(self.full_circuit())
 
     # -- observables ---------------------------------------------------
     def energy(self, statevector: np.ndarray) -> float:
